@@ -19,6 +19,10 @@
       "noUnusedLocals": true,
       "noUnusedParameters": true,
       "noFallthroughCasesInSwitch": true,
+      
+      /* Vite Types */
+      "types": ["vite/client"],
+
       /* for ShadCN */
       "baseUrl": ".",
       "paths": {
