@@ -186,7 +186,7 @@ export default function TransactionsPage() {
                 <div className="space-y-2">
                   <Label className="text-gray-700 font-semibold">نوع المعاملة (كتابة)</Label>
                   <Input 
-                    placeholder="اكتب النوع يدوياً..." 
+                    placeholder="اكتب المعاملة هنا.. مثلاً" 
                     value={formData.manualType}
                     onChange={(e) => setFormData({...formData, manualType: e.target.value})}
                     className="bg-[#eef2f6] shadow-3d-inset border-none"
@@ -209,8 +209,8 @@ export default function TransactionsPage() {
                 </div>
               </div>
 
-              {/* Row 2: Prices (Split) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Row 2: Prices (Split) - ALWAYS Side by Side (grid-cols-2) */}
+              <div className="grid grid-cols-2 gap-4">
                  <div className="space-y-2">
                   <Label className="text-gray-700 font-semibold">سعر المعقب</Label>
                   <div className="relative">
@@ -291,10 +291,10 @@ export default function TransactionsPage() {
 
             </div>
 
-            <DialogFooter className="sm:justify-start gap-2 mt-4">
+            <DialogFooter className="flex flex-col sm:flex-row justify-center items-center gap-3 mt-6 w-full">
               <button 
                 onClick={handleSave}
-                className="flex-1 py-3 rounded-xl bg-blue-600 text-white font-bold shadow-lg hover:bg-blue-700 active:scale-95 transition-all"
+                className="w-full sm:w-auto min-w-[200px] py-3 rounded-xl bg-blue-600 text-white font-bold shadow-lg hover:bg-blue-700 active:scale-95 transition-all"
               >
                 حفظ المعاملة
               </button>
