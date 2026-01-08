@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { 
   FileText, 
   Wallet, 
@@ -6,14 +7,22 @@ import {
   UserCheck, 
   Settings,
   Bell,
-  LogOut
+  LogOut,
+  Trophy
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardButton } from '@/components/DashboardButton';
 import { Separator } from '@/components/ui/separator';
+import { getStoredTransactions, calculateAchievers } from '@/lib/store';
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const [achievers, setAchievers] = useState<{name: string, count: number, total: number}[]>([]);
+
+  useEffect(() => {
+    const txs = getStoredTransactions();
+    setAchievers(calculateAchievers(txs));
+  }, []);
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -39,7 +48,7 @@ export default function Dashboard() {
       {/* Main Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-6 sm:gap-8">
         
-        {/* المعاملات - Navigate to /transactions */}
+        {/* المعاملات */}
         <DashboardButton 
           icon={FileText} 
           label="المعاملات" 
@@ -50,7 +59,7 @@ export default function Dashboard() {
         <DashboardButton 
           icon={Wallet} 
           label="الحسابات" 
-          onClick={() => console.log('Accounts clicked')}
+          onClick={() => navigate('/accounts')}
         />
 
         {/* التقارير */}
@@ -83,6 +92,40 @@ export default function Dashboard() {
 
       <div className="my-12">
         <Separator className="bg-gray-300" />
+      </div>
+
+      {/* Achievers Section */}
+      <div className="mb-12">
+        <h3 className="text-xl font-bold text-gray-700 mb-6 flex items-center gap-2">
+            <Trophy className="w-6 h-6 text-yellow-500" />
+            أفضل المنجزين
+        </h3>
+        
+        {achievers.length === 0 ? (
+            <div className="text-center p-8 bg-[#eef2f6] rounded-2xl shadow-3d-inset text-gray-500">
+                لا توجد بيانات كافية لعرض المنجزين حتى الآن.
+            </div>
+        ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                {achievers.slice(0, 3).map((achiever, index) => (
+                    <div key={achiever.name} className="relative bg-[#eef2f6] shadow-3d rounded-2xl p-4 flex items-center gap-4 border border-white/50">
+                        <div className={cn(
+                            "w-10 h-10 rounded-full flex items-center justify-center font-bold text-white shadow-lg",
+                            index === 0 ? "bg-yellow-500" : index === 1 ? "bg-gray-400" : "bg-orange-400"
+                        )}>
+                            {index + 1}
+                        </div>
+                        <div>
+                            <h4 className="font-bold text-gray-800">{achiever.name}</h4>
+                            <p className="text-xs text-gray-500">أنجز {achiever.count} معاملة</p>
+                        </div>
+                        <div className="mr-auto font-bold text-blue-600 text-sm">
+                            {achiever.total.toLocaleString()} ر.س
+                        </div>
+                    </div>
+                ))}
+            </div>
+        )}
       </div>
 
       {/* Footer / Stats Area */}

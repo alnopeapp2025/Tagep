@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import TransactionsPage from './pages/TransactionsPage';
+import AccountsPage from './pages/AccountsPage';
 
 function App() {
   // استخدام import.meta.env.BASE_URL يجعل الراوتر يتكيف تلقائياً مع إعدادات vite.config.ts
@@ -10,6 +11,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/transactions" element={<TransactionsPage />} />
+          <Route path="/accounts" element={<AccountsPage />} />
         </Routes>
       </div>
     </Router>

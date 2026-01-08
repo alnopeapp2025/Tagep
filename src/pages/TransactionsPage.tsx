@@ -21,9 +21,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent } from '@/components/ui/card';
+import { getStoredTransactions, saveStoredTransactions, getStoredBalances, saveStoredBalances, BANKS_LIST } from '@/lib/store';
 
 // --- Types ---
-interface Transaction {
+export interface Transaction {
   id: number;
   serialNo: string;
   type: string;
@@ -46,9 +47,7 @@ const agentsList = [
   "إنجاز بنفسي", "أحمد محمد", "مكتب الإنجاز السريع", "خالد عبدالله", "سعيد الشهراني"
 ];
 
-const banksList = [
-  "الراجحي", "الأهلي", "الإنماء", "البلاد", "بنك stc", "الرياض", "الجزيرة", "ساب", "نقداً كاش", "بنك آخر"
-];
+const banksList = BANKS_LIST;
 
 // --- Helper Component: Detailed Countdown Timer ---
 const CountdownTimer = ({ targetDate, status }: { targetDate: number, status: string }) => {
@@ -88,9 +87,8 @@ export default function TransactionsPage() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   
-  // Wallet State (Simulation)
-  const [officeBalance, setOfficeBalance] = useState(15400);
-  const [agentBalance, setAgentBalance] = useState(2400);
+  // Wallet State (Real Data from Store)
+  const [officeBalance, setOfficeBalance] = useState(0);
 
   // Transactions State
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -114,6 +112,19 @@ export default function TransactionsPage() {
   const agentPriceRef = useRef<HTMLInputElement>(null);
   const clientPriceRef = useRef<HTMLInputElement>(null);
   const durationRef = useRef<HTMLInputElement>(null);
+
+  // Load Initial Data
+  useEffect(() => {
+    const loadedTxs = getStoredTransactions();
+    setTransactions(loadedTxs);
+    updateBalancesDisplay();
+  }, []);
+
+  const updateBalancesDisplay = () => {
+    const bals = getStoredBalances();
+    const total = Object.values(bals).reduce((a, b) => a + b, 0);
+    setOfficeBalance(total);
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent, nextRef: React.RefObject<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -157,7 +168,9 @@ export default function TransactionsPage() {
       status: 'active'
     };
 
-    setTransactions([newTx, ...transactions]);
+    const updatedTxs = [newTx, ...transactions];
+    setTransactions(updatedTxs);
+    saveStoredTransactions(updatedTxs);
     setOpen(false);
     
     // Reset Form
@@ -175,19 +188,25 @@ export default function TransactionsPage() {
 
   const updateStatus = (id: number, newStatus: 'completed' | 'cancelled') => {
     const tx = transactions.find(t => t.id === id);
-    if (tx && newStatus === 'completed' && tx.status === 'active') {
-        // Accounting Logic
-        const clientP = parseFloat(tx.clientPrice) || 0;
-        const agentP = parseFloat(tx.agentPrice) || 0;
-        const profit = clientP - agentP;
+    if (!tx) return;
 
-        setOfficeBalance(prev => prev + profit);
-        setAgentBalance(prev => prev + agentP);
+    if (newStatus === 'completed' && tx.status === 'active') {
+        // Update Bank Balance
+        const clientP = parseFloat(tx.clientPrice) || 0;
+        const currentBalances = getStoredBalances();
+        
+        if (currentBalances[tx.paymentMethod] !== undefined) {
+          currentBalances[tx.paymentMethod] += clientP;
+          saveStoredBalances(currentBalances);
+          updateBalancesDisplay();
+        }
     }
 
-    setTransactions(transactions.map(tx => 
-      tx.id === id ? { ...tx, status: newStatus } : tx
-    ));
+    const updatedTxs = transactions.map(t => 
+      t.id === id ? { ...t, status: newStatus } : t
+    );
+    setTransactions(updatedTxs);
+    saveStoredTransactions(updatedTxs);
   };
 
   return (
@@ -213,13 +232,8 @@ export default function TransactionsPage() {
             <div className="hidden sm:flex gap-4">
                 <div className="bg-[#eef2f6] shadow-3d-inset px-4 py-2 rounded-xl flex items-center gap-2">
                     <Wallet className="w-4 h-4 text-blue-600" />
-                    <div className="text-xs text-gray-500">رصيد المكتب</div>
+                    <div className="text-xs text-gray-500">جملة الخزينة</div>
                     <div className="font-bold text-blue-700">{officeBalance.toLocaleString()} ر.س</div>
-                </div>
-                <div className="bg-[#eef2f6] shadow-3d-inset px-4 py-2 rounded-xl flex items-center gap-2">
-                    <Wallet className="w-4 h-4 text-green-600" />
-                    <div className="text-xs text-gray-500">رصيد المعقب</div>
-                    <div className="font-bold text-green-700">{agentBalance.toLocaleString()} ر.س</div>
                 </div>
             </div>
         </div>
