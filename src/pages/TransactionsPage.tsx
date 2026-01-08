@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { ArrowRight, Plus, Clock, CheckCircle, XCircle, Banknote } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { ArrowRight, Plus, Clock, CheckCircle, XCircle, Banknote, AlertCircle, Wallet } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -50,7 +50,7 @@ const banksList = [
   "الراجحي", "الأهلي", "الإنماء", "البلاد", "بنك stc", "الرياض", "الجزيرة", "ساب", "نقداً كاش", "بنك آخر"
 ];
 
-// --- Helper Component: Countdown Timer ---
+// --- Helper Component: Detailed Countdown Timer ---
 const CountdownTimer = ({ targetDate, status }: { targetDate: number, status: string }) => {
   const [timeLeft, setTimeLeft] = useState("جاري الحساب...");
 
@@ -70,27 +70,35 @@ const CountdownTimer = ({ targetDate, status }: { targetDate: number, status: st
       const days = Math.floor(diff / (1000 * 60 * 60 * 24));
       const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
-      setTimeLeft(`${days}ي : ${hours}س : ${minutes}د`);
+      setTimeLeft(`تبقي علي الإنجاز: ${days}يوم ${hours}ساعات ${minutes}دقيقة ${seconds}ثانية`);
     }, 1000);
 
     return () => clearInterval(timer);
   }, [targetDate, status]);
 
-  if (status === 'completed') return <span className="text-green-600 font-bold">مكتملة</span>;
-  if (status === 'cancelled') return <span className="text-red-600 font-bold">ملغاة</span>;
+  if (status === 'completed') return <span className="text-green-600 font-bold text-sm">تم الإنجاز بنجاح</span>;
+  if (status === 'cancelled') return <span className="text-red-600 font-bold text-sm">تم إلغاء المعاملة</span>;
 
-  return <span className="font-mono font-bold text-blue-600" dir="ltr">{timeLeft}</span>;
+  return <span className="font-mono font-bold text-blue-600 text-xs sm:text-sm" dir="rtl">{timeLeft}</span>;
 };
 
 export default function TransactionsPage() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   
+  // Wallet State (Simulation)
+  const [officeBalance, setOfficeBalance] = useState(15400);
+  const [agentBalance, setAgentBalance] = useState(2400);
+
   // Transactions State
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
   // Form State
+  const [inputTypeMode, setInputTypeMode] = useState<'manual' | 'select'>('manual');
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  
   const [formData, setFormData] = useState({
     manualType: '',
     selectedType: '',
@@ -101,10 +109,38 @@ export default function TransactionsPage() {
     paymentMethod: ''
   });
 
-  const handleSave = () => {
-    if (!formData.clientPrice || !formData.duration) return; // Basic validation
+  // Refs for Smart Navigation
+  const manualTypeRef = useRef<HTMLInputElement>(null);
+  const agentPriceRef = useRef<HTMLInputElement>(null);
+  const clientPriceRef = useRef<HTMLInputElement>(null);
+  const durationRef = useRef<HTMLInputElement>(null);
 
-    const finalType = formData.manualType || formData.selectedType || "غير محدد";
+  const handleKeyDown = (e: React.KeyboardEvent, nextRef: React.RefObject<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      nextRef.current?.focus();
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+    
+    if (inputTypeMode === 'manual' && !formData.manualType) newErrors.type = "يرجى كتابة نوع المعاملة";
+    if (inputTypeMode === 'select' && !formData.selectedType) newErrors.type = "يرجى اختيار نوع المعاملة";
+    if (!formData.agentPrice) newErrors.agentPrice = "مطلوب";
+    if (!formData.clientPrice) newErrors.clientPrice = "مطلوب";
+    if (!formData.agent) newErrors.agent = "يرجى اختيار المعقب";
+    if (!formData.duration) newErrors.duration = "مطلوب";
+    if (!formData.paymentMethod) newErrors.paymentMethod = "يرجى اختيار طريقة الدفع";
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSave = () => {
+    if (!validateForm()) return;
+
+    const finalType = inputTypeMode === 'manual' ? formData.manualType : formData.selectedType;
     const durationDays = parseInt(formData.duration) || 0;
     
     const newTx: Transaction = {
@@ -113,9 +149,9 @@ export default function TransactionsPage() {
       type: finalType,
       clientPrice: formData.clientPrice,
       agentPrice: formData.agentPrice,
-      agent: formData.agent || "إنجاز بنفسي",
+      agent: formData.agent,
       duration: formData.duration,
-      paymentMethod: formData.paymentMethod || "نقداً كاش",
+      paymentMethod: formData.paymentMethod,
       createdAt: Date.now(),
       targetDate: Date.now() + (durationDays * 24 * 60 * 60 * 1000),
       status: 'active'
@@ -134,9 +170,21 @@ export default function TransactionsPage() {
       duration: '',
       paymentMethod: ''
     });
+    setErrors({});
   };
 
   const updateStatus = (id: number, newStatus: 'completed' | 'cancelled') => {
+    const tx = transactions.find(t => t.id === id);
+    if (tx && newStatus === 'completed' && tx.status === 'active') {
+        // Accounting Logic
+        const clientP = parseFloat(tx.clientPrice) || 0;
+        const agentP = parseFloat(tx.agentPrice) || 0;
+        const profit = clientP - agentP;
+
+        setOfficeBalance(prev => prev + profit);
+        setAgentBalance(prev => prev + agentP);
+    }
+
     setTransactions(transactions.map(tx => 
       tx.id === id ? { ...tx, status: newStatus } : tx
     ));
@@ -145,22 +193,40 @@ export default function TransactionsPage() {
   return (
     <div className="max-w-5xl mx-auto pb-20">
       
-      {/* Header */}
-      <header className="mb-8 flex items-center gap-4">
-        <button 
-          onClick={() => navigate('/')}
-          className="p-3 rounded-full bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active text-gray-600 transition-all"
-        >
-          <ArrowRight className="w-6 h-6" />
-        </button>
-        <div>
-          <h1 className="text-3xl font-black text-gray-800 text-shadow">المعاملات</h1>
-          <p className="text-gray-500">إدارة ومتابعة المعاملات</p>
+      {/* Header & Wallet Summary */}
+      <header className="mb-6">
+        <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+                <button 
+                onClick={() => navigate('/')}
+                className="p-3 rounded-full bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active text-gray-600 transition-all"
+                >
+                <ArrowRight className="w-6 h-6" />
+                </button>
+                <div>
+                <h1 className="text-2xl sm:text-3xl font-black text-gray-800 text-shadow">المعاملات</h1>
+                <p className="text-gray-500 text-sm">إدارة ومتابعة المعاملات المالية</p>
+                </div>
+            </div>
+            
+            {/* Wallet Simulation Display */}
+            <div className="hidden sm:flex gap-4">
+                <div className="bg-[#eef2f6] shadow-3d-inset px-4 py-2 rounded-xl flex items-center gap-2">
+                    <Wallet className="w-4 h-4 text-blue-600" />
+                    <div className="text-xs text-gray-500">رصيد المكتب</div>
+                    <div className="font-bold text-blue-700">{officeBalance.toLocaleString()} ر.س</div>
+                </div>
+                <div className="bg-[#eef2f6] shadow-3d-inset px-4 py-2 rounded-xl flex items-center gap-2">
+                    <Wallet className="w-4 h-4 text-green-600" />
+                    <div className="text-xs text-gray-500">رصيد المعقب</div>
+                    <div className="font-bold text-green-700">{agentBalance.toLocaleString()} ر.س</div>
+                </div>
+            </div>
         </div>
       </header>
 
       {/* Actions Area */}
-      <div className="mb-8">
+      <div className="mb-6">
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <button className="flex items-center gap-3 px-8 py-4 rounded-2xl bg-[#eef2f6] text-blue-600 font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all w-full sm:w-auto justify-center">
@@ -171,82 +237,132 @@ export default function TransactionsPage() {
             </button>
           </DialogTrigger>
           
-          <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl max-w-2xl" dir="rtl">
+          <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl max-w-lg" dir="rtl">
             <DialogHeader>
-              <DialogTitle className="text-2xl font-bold text-gray-800 text-center mb-2">معاملة جديدة</DialogTitle>
-              <DialogDescription className="text-center text-gray-500 hidden">
-                أدخل تفاصيل المعاملة الجديدة
-              </DialogDescription>
+              <DialogTitle className="text-xl font-bold text-gray-800 text-center mb-1">بيانات المعاملة</DialogTitle>
+              <DialogDescription className="hidden">Form</DialogDescription>
             </DialogHeader>
 
-            <div className="grid gap-6 py-4">
+            {/* Compact Form Grid */}
+            <div className="grid gap-3 py-2">
               
-              {/* Row 1: Transaction Type (Split) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-gray-700 font-semibold">نوع المعاملة (كتابة)</Label>
-                  <Input 
-                    placeholder="اكتب المعاملة هنا.. مثلاً" 
-                    value={formData.manualType}
-                    onChange={(e) => setFormData({...formData, manualType: e.target.value})}
-                    className="bg-[#eef2f6] shadow-3d-inset border-none"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-gray-700 font-semibold">أو اختر من القائمة</Label>
-                  <Select 
-                    onValueChange={(val) => setFormData({...formData, selectedType: val, manualType: val})}
-                  >
-                    <SelectTrigger className="h-12 rounded-xl bg-[#eef2f6] border-none shadow-3d-inset text-right flex-row-reverse">
-                      <SelectValue placeholder="اختر معاملة..." />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">
-                      {transactionTypesList.map((type) => (
-                        <SelectItem key={type} value={type} className="text-right cursor-pointer focus:bg-white/50 my-1">{type}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              {/* 1. Transaction Type (Red Frame Logic) */}
+              <div className="relative border-2 border-red-400/30 rounded-xl p-3 bg-white/30">
+                 <Label className="text-gray-700 font-bold text-xs mb-2 block">نوع المعاملة</Label>
+                 
+                 {/* Toggle Switch */}
+                 <div className="flex bg-[#eef2f6] p-1 rounded-lg shadow-3d-inset mb-3">
+                    <button 
+                        onClick={() => setInputTypeMode('manual')}
+                        className={cn(
+                            "flex-1 py-1 text-xs font-bold rounded-md transition-all",
+                            inputTypeMode === 'manual' ? "bg-white shadow-sm text-blue-600" : "text-gray-400"
+                        )}
+                    >
+                        كتابة يدوية
+                    </button>
+                    <button 
+                        onClick={() => setInputTypeMode('select')}
+                        className={cn(
+                            "flex-1 py-1 text-xs font-bold rounded-md transition-all",
+                            inputTypeMode === 'select' ? "bg-white shadow-sm text-blue-600" : "text-gray-400"
+                        )}
+                    >
+                        اختر من قائمة
+                    </button>
+                 </div>
+
+                 {inputTypeMode === 'manual' ? (
+                    <Input 
+                        ref={manualTypeRef}
+                        placeholder="اكتب المعاملة هنا.. مثلاً" 
+                        value={formData.manualType}
+                        onChange={(e) => {
+                            setFormData({...formData, manualType: e.target.value});
+                            if(errors.type) setErrors({...errors, type: ''});
+                        }}
+                        onKeyDown={(e) => handleKeyDown(e, agentPriceRef)}
+                        className="bg-[#eef2f6] shadow-3d-inset border-none h-10 text-sm"
+                    />
+                 ) : (
+                    <Select 
+                        onValueChange={(val) => {
+                            setFormData({...formData, selectedType: val});
+                            if(errors.type) setErrors({...errors, type: ''});
+                        }}
+                    >
+                        <SelectTrigger className="h-10 rounded-xl bg-[#eef2f6] border-none shadow-3d-inset text-right flex-row-reverse text-sm">
+                        <SelectValue placeholder="اختر معاملة..." />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">
+                        {transactionTypesList.map((type) => (
+                            <SelectItem key={type} value={type} className="text-right cursor-pointer focus:bg-white/50 my-1">{type}</SelectItem>
+                        ))}
+                        </SelectContent>
+                    </Select>
+                 )}
+                 {errors.type && <p className="text-red-500 text-[10px] mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {errors.type}</p>}
               </div>
 
-              {/* Row 2: Prices (Split) - ALWAYS Side by Side (grid-cols-2) */}
-              <div className="grid grid-cols-2 gap-4">
-                 <div className="space-y-2">
-                  <Label className="text-gray-700 font-semibold">سعر المعقب</Label>
+              {/* 2. Prices (Side by Side) */}
+              <div className="grid grid-cols-2 gap-3">
+                 <div className="space-y-1">
+                  <Label className="text-gray-700 font-bold text-xs">سعر المعقب</Label>
                   <div className="relative">
                     <Input 
+                      ref={agentPriceRef}
                       type="number" 
                       placeholder="0" 
                       value={formData.agentPrice}
-                      onChange={(e) => setFormData({...formData, agentPrice: e.target.value})}
-                      className="pl-12 text-left font-bold text-gray-600"
+                      onChange={(e) => {
+                          setFormData({...formData, agentPrice: e.target.value});
+                          if(errors.agentPrice) setErrors({...errors, agentPrice: ''});
+                      }}
+                      onKeyDown={(e) => handleKeyDown(e, clientPriceRef)}
+                      className={cn(
+                          "pl-10 text-left font-bold text-gray-600 h-10 text-sm",
+                          errors.agentPrice ? "border border-red-400" : "border-none"
+                      )}
                     />
-                    <span className="absolute left-3 top-3 text-sm font-bold text-gray-400">ر.س</span>
+                    <span className="absolute left-3 top-2.5 text-xs font-bold text-gray-400">ر.س</span>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-gray-700 font-semibold">السعر للعميل</Label>
+                <div className="space-y-1">
+                  <Label className="text-gray-700 font-bold text-xs">السعر للعميل</Label>
                   <div className="relative">
                     <Input 
+                      ref={clientPriceRef}
                       type="number" 
                       placeholder="0" 
                       value={formData.clientPrice}
-                      onChange={(e) => setFormData({...formData, clientPrice: e.target.value})}
-                      className="pl-12 text-left font-bold text-blue-600"
+                      onChange={(e) => {
+                          setFormData({...formData, clientPrice: e.target.value});
+                          if(errors.clientPrice) setErrors({...errors, clientPrice: ''});
+                      }}
+                      onKeyDown={(e) => handleKeyDown(e, durationRef)}
+                      className={cn(
+                        "pl-10 text-left font-bold text-blue-600 h-10 text-sm",
+                        errors.clientPrice ? "border border-red-400" : "border-none"
+                      )}
                     />
-                    <span className="absolute left-3 top-3 text-sm font-bold text-blue-400">ر.س</span>
+                    <span className="absolute left-3 top-2.5 text-xs font-bold text-blue-400">ر.س</span>
                   </div>
                 </div>
               </div>
 
-              {/* Row 3: Agent Selection */}
-              <div className="space-y-2">
-                <Label className="text-gray-700 font-semibold">اختر المعقب</Label>
+              {/* 3. Agent Selection */}
+              <div className="space-y-1">
+                <Label className="text-gray-700 font-bold text-xs">اختر المعقب</Label>
                 <Select 
-                   onValueChange={(val) => setFormData({...formData, agent: val})}
-                   defaultValue="إنجاز بنفسي"
+                   onValueChange={(val) => {
+                       setFormData({...formData, agent: val});
+                       if(errors.agent) setErrors({...errors, agent: ''});
+                   }}
                 >
-                  <SelectTrigger className="h-12 rounded-xl bg-[#eef2f6] border-none shadow-3d-inset text-right flex-row-reverse">
+                  <SelectTrigger className={cn(
+                      "h-10 rounded-xl bg-[#eef2f6] shadow-3d-inset text-right flex-row-reverse text-sm",
+                      errors.agent ? "border border-red-400" : "border-none"
+                  )}>
                     <SelectValue placeholder="اختر المعقب..." />
                   </SelectTrigger>
                   <SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">
@@ -257,27 +373,40 @@ export default function TransactionsPage() {
                 </Select>
               </div>
 
-              {/* Row 4: Duration & Payment (Split) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-gray-700 font-semibold">مدة الإنجاز (أيام)</Label>
+              {/* 4. Duration & Payment */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-gray-700 font-bold text-xs">مدة الإنجاز (أيام)</Label>
                   <div className="relative">
                     <Input 
+                      ref={durationRef}
                       type="number" 
-                      placeholder="مثال: 3" 
+                      placeholder="3" 
                       value={formData.duration}
-                      onChange={(e) => setFormData({...formData, duration: e.target.value})}
-                      className="pl-10 text-left"
+                      onChange={(e) => {
+                          setFormData({...formData, duration: e.target.value});
+                          if(errors.duration) setErrors({...errors, duration: ''});
+                      }}
+                      className={cn(
+                        "pl-8 text-left h-10 text-sm",
+                        errors.duration ? "border border-red-400" : "border-none"
+                      )}
                     />
-                    <Clock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                    <Clock className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-gray-700 font-semibold">طريقة الدفع</Label>
+                <div className="space-y-1">
+                  <Label className="text-gray-700 font-bold text-xs">طريقة الدفع</Label>
                   <Select 
-                    onValueChange={(val) => setFormData({...formData, paymentMethod: val})}
+                    onValueChange={(val) => {
+                        setFormData({...formData, paymentMethod: val});
+                        if(errors.paymentMethod) setErrors({...errors, paymentMethod: ''});
+                    }}
                   >
-                    <SelectTrigger className="h-12 rounded-xl bg-[#eef2f6] border-none shadow-3d-inset text-right flex-row-reverse">
+                    <SelectTrigger className={cn(
+                        "h-10 rounded-xl bg-[#eef2f6] shadow-3d-inset text-right flex-row-reverse text-sm",
+                        errors.paymentMethod ? "border border-red-400" : "border-none"
+                    )}>
                       <SelectValue placeholder="اختر البنك..." />
                     </SelectTrigger>
                     <SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">
@@ -291,18 +420,12 @@ export default function TransactionsPage() {
 
             </div>
 
-            <DialogFooter className="flex flex-col sm:flex-row justify-center items-center gap-3 mt-6 w-full">
+            <DialogFooter className="flex justify-center mt-4">
               <button 
                 onClick={handleSave}
-                className="w-full sm:w-auto min-w-[200px] py-3 rounded-xl bg-blue-600 text-white font-bold shadow-lg hover:bg-blue-700 active:scale-95 transition-all"
+                className="w-full max-w-[200px] py-3 rounded-xl bg-blue-600 text-white font-bold shadow-lg hover:bg-blue-700 active:scale-95 transition-all text-sm"
               >
                 حفظ المعاملة
-              </button>
-              <button 
-                onClick={() => setOpen(false)}
-                className="px-6 py-3 rounded-xl bg-transparent text-gray-500 font-semibold hover:bg-gray-200/50 transition-all"
-              >
-                إلغاء
               </button>
             </DialogFooter>
           </DialogContent>
@@ -330,78 +453,52 @@ export default function TransactionsPage() {
                 tx.status === 'cancelled' ? "opacity-60 grayscale" : ""
               )}>
                 <CardContent className="p-0">
-                  <div className="flex flex-col sm:flex-row items-stretch">
+                  <div className="flex flex-col">
                     
-                    {/* Status Strip */}
-                    <div className={cn(
-                      "w-full sm:w-2 h-2 sm:h-auto",
-                      tx.status === 'active' ? "bg-blue-500" : 
-                      tx.status === 'completed' ? "bg-green-500" : "bg-red-500"
-                    )} />
-
-                    <div className="flex-1 p-5 sm:p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-center">
-                      
-                      {/* Info Block 1 */}
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">رقم المعاملة</p>
-                        <p className="font-bold text-gray-800">#{tx.serialNo}</p>
-                      </div>
-
-                      {/* Info Block 2 */}
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">نوع المعاملة</p>
-                        <p className="font-bold text-gray-800">{tx.type}</p>
-                      </div>
-
-                      {/* Info Block 3 */}
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">السعر للعميل</p>
-                        <p className="font-bold text-blue-600">{tx.clientPrice} ر.س</p>
-                      </div>
-
-                      {/* Timer Block */}
-                      <div className="bg-[#eef2f6] shadow-3d-inset rounded-xl p-3 text-center">
-                        <p className="text-xs text-gray-500 mb-1">الوقت المتبقي</p>
-                        <CountdownTimer targetDate={tx.targetDate} status={tx.status} />
-                      </div>
-
+                    {/* Top Row: Info (One Line) */}
+                    <div className="flex items-center justify-between p-4 bg-white/40 border-b border-white/50">
+                        <div className="flex items-center gap-2 sm:gap-4 overflow-hidden">
+                            <span className="font-mono font-bold text-gray-400 text-sm">#{tx.serialNo}</span>
+                            <span className="h-4 w-[1px] bg-gray-300"></span>
+                            <span className="font-bold text-gray-800 text-sm truncate">{tx.type}</span>
+                            <span className="h-4 w-[1px] bg-gray-300"></span>
+                            <span className="font-bold text-blue-600 text-sm whitespace-nowrap">{tx.clientPrice} ر.س</span>
+                        </div>
+                        <div className={cn(
+                            "w-2 h-2 rounded-full",
+                            tx.status === 'active' ? "bg-blue-500 animate-pulse" : 
+                            tx.status === 'completed' ? "bg-green-500" : "bg-red-500"
+                        )} />
                     </div>
 
-                    {/* Actions */}
-                    {tx.status === 'active' && (
-                      <div className="flex sm:flex-col border-t sm:border-t-0 sm:border-r border-gray-200 divide-x sm:divide-x-0 sm:divide-y divide-gray-200 rtl:divide-x-reverse">
-                        <button 
-                          onClick={() => updateStatus(tx.id, 'completed')}
-                          className="flex-1 sm:flex-none p-4 hover:bg-green-50 text-green-600 transition-colors flex items-center justify-center gap-2"
-                          title="تم الإنجاز"
-                        >
-                          <CheckCircle className="w-5 h-5" />
-                          <span className="sm:hidden text-sm font-bold">إنجاز</span>
-                        </button>
-                        <button 
-                          onClick={() => updateStatus(tx.id, 'cancelled')}
-                          className="flex-1 sm:flex-none p-4 hover:bg-red-50 text-red-600 transition-colors flex items-center justify-center gap-2"
-                          title="إلغاء المعاملة"
-                        >
-                          <XCircle className="w-5 h-5" />
-                          <span className="sm:hidden text-sm font-bold">إلغاء</span>
-                        </button>
-                      </div>
-                    )}
-                    
-                    {tx.status !== 'active' && (
-                       <div className="flex items-center justify-center p-4 border-t sm:border-t-0 sm:border-r border-gray-200">
-                          {tx.status === 'completed' ? (
-                            <span className="flex items-center gap-2 text-green-600 font-bold bg-green-100 px-3 py-1 rounded-full text-sm">
-                              <CheckCircle className="w-4 h-4" /> منجز
-                            </span>
-                          ) : (
-                            <span className="flex items-center gap-2 text-red-600 font-bold bg-red-100 px-3 py-1 rounded-full text-sm">
-                              <XCircle className="w-4 h-4" /> ملغي
-                            </span>
-                          )}
-                       </div>
-                    )}
+                    {/* Middle: Timer & Actions */}
+                    <div className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                        
+                        {/* Countdown */}
+                        <div className="w-full sm:w-auto bg-[#eef2f6] shadow-3d-inset rounded-xl p-3 text-center flex-1">
+                            <CountdownTimer targetDate={tx.targetDate} status={tx.status} />
+                        </div>
+
+                        {/* Actions */}
+                        {tx.status === 'active' && (
+                            <div className="flex gap-3 w-full sm:w-auto">
+                                <button 
+                                onClick={() => updateStatus(tx.id, 'completed')}
+                                className="flex-1 sm:flex-none px-4 py-2 bg-green-100 text-green-700 rounded-lg font-bold hover:bg-green-200 transition-colors text-sm flex items-center justify-center gap-1"
+                                >
+                                <CheckCircle className="w-4 h-4" />
+                                إنجاز
+                                </button>
+                                <button 
+                                onClick={() => updateStatus(tx.id, 'cancelled')}
+                                className="flex-1 sm:flex-none px-4 py-2 bg-red-100 text-red-700 rounded-lg font-bold hover:bg-red-200 transition-colors text-sm flex items-center justify-center gap-1"
+                                >
+                                <XCircle className="w-4 h-4" />
+                                إلغاء
+                                </button>
+                            </div>
+                        )}
+                    </div>
 
                   </div>
                 </CardContent>
