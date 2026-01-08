@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ command }) => ({
   plugins: [react()],
-  // استخدام شرط: إذا كان الأمر بناء (build) نستخدم مسار المستودع، وإلا نستخدم المسار الجذري للتطوير
+  // Uses '/Tagep/' for production build (npm run deploy) and '/' for local dev
   base: command === 'build' ? '/Tagep/' : '/',
   resolve: {
     alias: {
