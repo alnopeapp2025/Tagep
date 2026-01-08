@@ -126,7 +126,7 @@ export default function TransactionsPage() {
     setOfficeBalance(total);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent, nextRef: React.RefObject<HTMLInputElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent, nextRef: React.RefObject<HTMLInputElement | null>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       nextRef.current?.focus();

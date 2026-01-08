@@ -39,7 +39,6 @@
   .dark {
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
-    /* Dark mode adjustments would go here */
   }
 }
  
@@ -50,7 +49,7 @@
   body {
     @apply bg-background text-foreground;
     font-family: 'Cairo', sans-serif;
-    background-color: #eef2f6; /* Explicit light gray for contrast */
+    background-color: #eef2f6;
   }
 }
 
@@ -84,5 +83,22 @@
   
   .text-shadow {
     text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+  }
+
+  /* Marquee Animation */
+  .marquee-container {
+    overflow: hidden;
+    white-space: nowrap;
+    position: relative;
+  }
+
+  .marquee-content {
+    display: inline-block;
+    animation: marquee 15s linear infinite;
+  }
+
+  @keyframes marquee {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
   }
 }

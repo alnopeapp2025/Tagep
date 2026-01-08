@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Wallet, RefreshCw, Trash2, Landmark, ArrowLeftRight } from 'lucide-react';
+import { ArrowRight, Wallet, Trash2, Landmark, ArrowLeftRight } from 'lucide-react';
 import { BANKS_LIST, getStoredBalances, saveStoredBalances } from '@/lib/store';
-import { cn } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
@@ -48,14 +47,22 @@ export default function AccountsPage() {
   const handleTransfer = () => {
     const amount = parseFloat(transferAmount);
     if (!transferFrom || !transferTo || !amount || amount <= 0) return;
-    if (balances[transferFrom] < amount) {
+
+    // FIX: Ensure we handle undefined balances by defaulting to 0
+    // This prevents 'NaN' errors when transferring to/from new accounts
+    const currentFromBalance = balances[transferFrom] || 0;
+    const currentToBalance = balances[transferTo] || 0;
+
+    if (currentFromBalance < amount) {
       alert("رصيد البنك المحول منه غير كافي");
       return;
     }
 
     const newBalances = { ...balances };
-    newBalances[transferFrom] -= amount;
-    newBalances[transferTo] += amount;
+    
+    // Update balances safely
+    newBalances[transferFrom] = currentFromBalance - amount;
+    newBalances[transferTo] = currentToBalance + amount;
 
     saveStoredBalances(newBalances);
     loadData();
