@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ArrowRight, Plus, Clock, CheckCircle, XCircle, Banknote, AlertCircle, Wallet, Printer, Send, UserPlus, ChevronDown } from 'lucide-react';
+import { ArrowRight, Plus, Clock, Banknote, AlertCircle, Wallet, Printer, Send } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent } from '@/components/ui/card';
-import { getStoredTransactions, saveStoredTransactions, getStoredBalances, saveStoredBalances, BANKS_LIST, getStoredClients, saveStoredClients, Client } from '@/lib/store';
+import { getStoredTransactions, saveStoredTransactions, getStoredBalances, saveStoredBalances, BANKS_LIST, getStoredClients, saveStoredClients, Client, getStoredAgents, saveStoredAgents, Agent } from '@/lib/store';
 
 // --- Types ---
 export interface Transaction {
@@ -31,7 +31,7 @@ export interface Transaction {
   clientPrice: string;
   agentPrice: string;
   agent: string;
-  clientName?: string; // New Field
+  clientName?: string;
   duration: string;
   paymentMethod: string;
   createdAt: number;
@@ -43,12 +43,6 @@ export interface Transaction {
 const transactionTypesList = [
   "تجديد إقامة", "نقل كفالة", "خروج وعودة", "خروج نهائي", "تأشيرة زيارة", "تأمين طبي", "إصدار رخصة"
 ];
-
-const agentsList = [
-  "إنجاز بنفسي", "أحمد محمد", "مكتب الإنجاز السريع", "خالد عبدالله", "سعيد الشهراني"
-];
-
-const banksList = BANKS_LIST;
 
 // --- Helper Component: Detailed Countdown Timer ---
 const CountdownTimer = ({ targetDate, status }: { targetDate: number, status: string }) => {
@@ -94,10 +88,15 @@ export default function TransactionsPage() {
   // Transactions State
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
-  // Clients State
+  // Clients & Agents State
   const [clients, setClients] = useState<Client[]>([]);
+  const [agents, setAgents] = useState<Agent[]>([]);
+  
   const [addClientOpen, setAddClientOpen] = useState(false);
   const [newClientName, setNewClientName] = useState('');
+
+  const [addAgentOpen, setAddAgentOpen] = useState(false);
+  const [newAgentName, setNewAgentName] = useState('');
 
   // Form State
   const [inputTypeMode, setInputTypeMode] = useState<'manual' | 'select'>('manual');
@@ -119,12 +118,14 @@ export default function TransactionsPage() {
   const agentPriceRef = useRef<HTMLInputElement>(null);
   const clientPriceRef = useRef<HTMLInputElement>(null);
   const durationRef = useRef<HTMLInputElement>(null);
+  const clientSelectRef = useRef<HTMLButtonElement>(null);
 
   // Load Initial Data
   useEffect(() => {
     const loadedTxs = getStoredTransactions();
     setTransactions(loadedTxs);
     setClients(getStoredClients());
+    setAgents(getStoredAgents());
     updateBalancesDisplay();
   }, []);
 
@@ -207,10 +208,29 @@ export default function TransactionsPage() {
     setClients(updated);
     saveStoredClients(updated);
     
-    // Auto select the new client
     setFormData(prev => ({ ...prev, clientName: newClientName }));
     setNewClientName('');
     setAddClientOpen(false);
+    // Auto focus on next field (Duration)
+    setTimeout(() => durationRef.current?.focus(), 100);
+  };
+
+  const handleAddAgentQuick = () => {
+    if(!newAgentName.trim()) return;
+    const newAgent: Agent = {
+      id: Date.now(),
+      name: newAgentName,
+      createdAt: Date.now()
+    };
+    const updated = [newAgent, ...agents];
+    setAgents(updated);
+    saveStoredAgents(updated);
+
+    setFormData(prev => ({ ...prev, agent: newAgentName }));
+    setNewAgentName('');
+    setAddAgentOpen(false);
+    // Auto focus on next field (Client Select)
+    // Since Select trigger is a button, we can try to focus it or just leave it
   };
 
   const updateStatus = (id: number, newStatus: 'completed' | 'cancelled') => {
@@ -263,7 +283,6 @@ export default function TransactionsPage() {
                 </div>
             </div>
             
-            {/* Wallet Simulation Display */}
             <div className="hidden sm:flex gap-4">
                 <div className="bg-[#eef2f6] shadow-3d-inset px-4 py-2 rounded-xl flex items-center gap-2">
                     <Wallet className="w-4 h-4 text-blue-600" />
@@ -295,11 +314,10 @@ export default function TransactionsPage() {
             {/* Compact Form Grid */}
             <div className="grid gap-3 py-2">
               
-              {/* 1. Transaction Type (Red Frame Logic) */}
+              {/* 1. Transaction Type */}
               <div className="relative border-2 border-red-400/30 rounded-xl p-3 bg-white/30">
                  <Label className="text-gray-700 font-bold text-xs mb-2 block">نوع المعاملة</Label>
                  
-                 {/* Toggle Switch */}
                  <div className="flex bg-[#eef2f6] p-1 rounded-lg shadow-3d-inset mb-3">
                     <button 
                         onClick={() => setInputTypeMode('manual')}
@@ -355,7 +373,7 @@ export default function TransactionsPage() {
                  {errors.type && <p className="text-red-500 text-[10px] mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {errors.type}</p>}
               </div>
 
-              {/* 2. Prices (Side by Side) */}
+              {/* 2. Prices */}
               <div className="grid grid-cols-2 gap-3">
                  <div className="space-y-1">
                   <Label className="text-gray-700 font-bold text-xs">سعر المعقب</Label>
@@ -401,27 +419,52 @@ export default function TransactionsPage() {
                 </div>
               </div>
 
-              {/* 3. Agent Selection */}
+              {/* 3. Agent Selection with Add Button */}
               <div className="space-y-1">
                 <Label className="text-gray-700 font-bold text-xs">اختر المعقب</Label>
-                <Select 
-                   onValueChange={(val) => {
-                       setFormData({...formData, agent: val});
-                       if(errors.agent) setErrors({...errors, agent: ''});
-                   }}
-                >
-                  <SelectTrigger className={cn(
-                      "h-10 rounded-xl bg-[#eef2f6] shadow-3d-inset text-right flex-row-reverse text-sm",
-                      errors.agent ? "border border-red-400" : "border-none"
-                  )}>
-                    <SelectValue placeholder="اختر المعقب..." />
-                  </SelectTrigger>
-                  <SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">
-                    {agentsList.map((agent) => (
-                      <SelectItem key={agent} value={agent} className="text-right cursor-pointer focus:bg-white/50 my-1">{agent}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2">
+                    <div className="flex-1">
+                        <Select 
+                            value={formData.agent}
+                            onValueChange={(val) => {
+                                setFormData({...formData, agent: val});
+                                if(errors.agent) setErrors({...errors, agent: ''});
+                            }}
+                        >
+                        <SelectTrigger className={cn(
+                            "h-10 rounded-xl bg-[#eef2f6] shadow-3d-inset text-right flex-row-reverse text-sm",
+                            errors.agent ? "border border-red-400" : "border-none"
+                        )}>
+                            <SelectValue placeholder="اختر المعقب..." />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">
+                            <SelectItem value="إنجاز بنفسي" className="text-right font-bold text-blue-600">إنجاز بنفسي</SelectItem>
+                            {agents.map((agent) => (
+                            <SelectItem key={agent.id} value={agent.name} className="text-right cursor-pointer focus:bg-white/50 my-1">{agent.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                        </Select>
+                    </div>
+                    <Dialog open={addAgentOpen} onOpenChange={setAddAgentOpen}>
+                        <DialogTrigger asChild>
+                            <button className="w-10 h-10 rounded-xl bg-orange-500 text-white shadow-3d flex items-center justify-center hover:bg-orange-600">
+                                <Plus className="w-5 h-5" />
+                            </button>
+                        </DialogTrigger>
+                        <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
+                            <DialogHeader><DialogTitle>إضافة معقب سريع</DialogTitle></DialogHeader>
+                            <div className="py-4 space-y-3">
+                                <Input 
+                                    placeholder="اسم المعقب" 
+                                    value={newAgentName}
+                                    onChange={(e) => setNewAgentName(e.target.value)}
+                                    className="bg-white shadow-3d-inset border-none"
+                                />
+                                <button onClick={handleAddAgentQuick} className="w-full py-3 bg-orange-500 text-white rounded-xl font-bold">حفظ وإكمال</button>
+                            </div>
+                        </DialogContent>
+                    </Dialog>
+                </div>
               </div>
 
                {/* 4. Client Selection with Add Button */}
@@ -433,7 +476,7 @@ export default function TransactionsPage() {
                             value={formData.clientName}
                             onValueChange={(val) => setFormData({...formData, clientName: val})}
                         >
-                            <SelectTrigger className="h-10 rounded-xl bg-[#eef2f6] shadow-3d-inset text-right flex-row-reverse text-sm border-none">
+                            <SelectTrigger ref={clientSelectRef} className="h-10 rounded-xl bg-[#eef2f6] shadow-3d-inset text-right flex-row-reverse text-sm border-none">
                                 <SelectValue placeholder="اختر عميل..." />
                             </SelectTrigger>
                             <SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">
@@ -502,7 +545,7 @@ export default function TransactionsPage() {
                       <SelectValue placeholder="اختر البنك..." />
                     </SelectTrigger>
                     <SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">
-                      {banksList.map((bank) => (
+                      {BANKS_LIST.map((bank) => (
                         <SelectItem key={bank} value={bank} className="text-right cursor-pointer focus:bg-white/50 my-1">{bank}</SelectItem>
                       ))}
                     </SelectContent>

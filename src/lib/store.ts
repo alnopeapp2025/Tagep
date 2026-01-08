@@ -133,3 +133,39 @@ export const calculateAchievers = (transactions: Transaction[]) => {
     .map(([name, data]) => ({ name, ...data }))
     .sort((a, b) => b.total - a.total); // Sort by revenue
 };
+
+// --- Backup & Restore & Delete ---
+
+export const createBackup = () => {
+  const data = {
+    transactions: getStoredTransactions(),
+    balances: getStoredBalances(),
+    clients: getStoredClients(),
+    agents: getStoredAgents(),
+    expenses: getStoredExpenses(),
+    timestamp: Date.now()
+  };
+  return JSON.stringify(data);
+};
+
+export const restoreBackup = (jsonData: string) => {
+  try {
+    const data = JSON.parse(jsonData);
+    if (data.transactions) saveStoredTransactions(data.transactions);
+    if (data.balances) saveStoredBalances(data.balances);
+    if (data.clients) saveStoredClients(data.clients);
+    if (data.agents) saveStoredAgents(data.agents);
+    if (data.expenses) saveStoredExpenses(data.expenses);
+    return true;
+  } catch (e) {
+    console.error("Restore failed", e);
+    return false;
+  }
+};
+
+export const clearAgents = () => localStorage.removeItem(AGENTS_KEY);
+export const clearClients = () => localStorage.removeItem(CLIENTS_KEY);
+export const clearTransactions = () => localStorage.removeItem(TX_KEY);
+export const clearAllData = () => {
+  localStorage.clear();
+};

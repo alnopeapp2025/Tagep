@@ -1,49 +1,60 @@
 import { useEffect, useState } from 'react';
 import { 
-  FileText, 
-  Wallet, 
-  BarChart3, 
-  Users, 
-  UserCheck, 
-  Settings,
-  Bell,
-  LogOut,
-  Trophy,
-  Menu,
-  Award,
-  LogIn,
-  Receipt,
-  Calculator,
-  Activity,
-  Clock,
-  CheckCircle2
+  FileText, Wallet, BarChart3, Users, UserCheck, Settings, Bell, LogOut, 
+  Trophy, Menu, Award, LogIn, Receipt, Calculator, Activity, Clock, CheckCircle2,
+  Search, Database, Trash2, Shield, AlertTriangle, Download, Upload
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardButton } from '@/components/DashboardButton';
 import { Separator } from '@/components/ui/separator';
-import { getStoredTransactions, calculateAchievers } from '@/lib/store';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { 
+  getStoredTransactions, 
+  calculateAchievers, 
+  createBackup, 
+  restoreBackup, 
+  clearAgents, 
+  clearClients, 
+  clearTransactions, 
+  clearAllData,
+  Transaction 
+} from '@/lib/store';
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Accordion, AccordionContent, AccordionItem, AccordionTrigger,
+} from "@/components/ui/accordion";
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const [achievers, setAchievers] = useState<{name: string, count: number, total: number}[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   
   // Ticker State
   const [tickerIndex, setTickerIndex] = useState(0);
-  const [tickerStats, setTickerStats] = useState({
-    active: 0,
-    inProgress: 0,
-    completedWeek: 0
-  });
+  const [tickerStats, setTickerStats] = useState({ active: 0, inProgress: 0, completedWeek: 0 });
+
+  // Inquiry State
+  const [inquiryOpen, setInquiryOpen] = useState(false);
+  const [inquiryId, setInquiryId] = useState('');
+  const [foundTx, setFoundTx] = useState<Transaction | null>(null);
+
+  // Backup State
+  const [backupOpen, setBackupOpen] = useState(false);
+  const [restoreText, setRestoreText] = useState('');
+
+  // Delete States
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteAllConfirm, setDeleteAllConfirm] = useState(false);
 
   useEffect(() => {
     const txs = getStoredTransactions();
+    setTransactions(txs);
     setAchievers(calculateAchievers(txs));
 
     // Calculate Ticker Stats
@@ -57,10 +68,9 @@ export default function Dashboard() {
 
     setTickerStats({ active, inProgress, completedWeek });
 
-    // Ticker Interval
     const interval = setInterval(() => {
       setTickerIndex(prev => (prev + 1) % 3);
-    }, 4000); // Switch every 4 seconds
+    }, 4000);
 
     return () => clearInterval(interval);
   }, []);
@@ -69,6 +79,35 @@ export default function Dashboard() {
     const element = document.getElementById('achievers-section');
     if (element) {
       element.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  const handleInquiry = () => {
+    const tx = transactions.find(t => t.serialNo === inquiryId);
+    setFoundTx(tx || null);
+    if (!tx) alert('لم يتم العثور على معاملة بهذا الرقم');
+  };
+
+  const handleCreateBackup = () => {
+    const data = createBackup();
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `backup_moaqeb_${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  const handleRestoreBackup = () => {
+    if (!restoreText) return;
+    const success = restoreBackup(restoreText);
+    if (success) {
+      alert('تم استعادة النسخة الاحتياطية بنجاح! سيتم إعادة تحميل الصفحة.');
+      window.location.reload();
+    } else {
+      alert('فشل استعادة النسخة. تأكد من صحة الكود.');
     }
   };
 
@@ -108,20 +147,123 @@ export default function Dashboard() {
                   <Menu className="w-6 h-6" />
                 </button>
               </SheetTrigger>
-              <SheetContent side="right" className="bg-[#eef2f6] w-[300px] sm:w-[400px]" dir="rtl">
+              <SheetContent side="right" className="bg-[#eef2f6] w-[300px] sm:w-[400px] overflow-y-auto" dir="rtl">
                 <SheetHeader className="mb-6 text-right">
                   <SheetTitle className="text-2xl font-black text-gray-800">القائمة الرئيسية</SheetTitle>
                 </SheetHeader>
                 
-                <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-3">
                   <button onClick={() => navigate('/login')} className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
                     <LogIn className="w-5 h-5 text-blue-600" />
                     تسجيل دخول
                   </button>
                   
+                  <Dialog open={inquiryOpen} onOpenChange={setInquiryOpen}>
+                    <DialogTrigger asChild>
+                      <button className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
+                        <Search className="w-5 h-5 text-purple-600" />
+                        استعلام عن معاملة
+                      </button>
+                    </DialogTrigger>
+                    <DialogContent className="bg-[#eef2f6] border-none shadow-3d" dir="rtl">
+                      <DialogHeader><DialogTitle>الاستعلام عن معاملة</DialogTitle></DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="flex gap-2">
+                          <Input 
+                            placeholder="رقم المعاملة (مثلاً 0001)" 
+                            value={inquiryId}
+                            onChange={(e) => setInquiryId(e.target.value)}
+                            className="bg-white shadow-3d-inset border-none"
+                          />
+                          <button onClick={handleInquiry} className="bg-purple-600 text-white px-4 rounded-xl font-bold shadow-lg">بحث</button>
+                        </div>
+                        {foundTx && (
+                          <div className="bg-white/50 p-4 rounded-xl border border-white space-y-2 animate-in fade-in">
+                            <p><span className="font-bold">النوع:</span> {foundTx.type}</p>
+                            <p><span className="font-bold">العميل:</span> {foundTx.clientName}</p>
+                            <p><span className="font-bold">السعر:</span> <span className="text-blue-600">{foundTx.clientPrice} ر.س</span></p>
+                            <p><span className="font-bold">الحالة:</span> {foundTx.status === 'active' ? 'نشطة' : foundTx.status === 'completed' ? 'مكتملة' : 'ملغاة'}</p>
+                          </div>
+                        )}
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+
+                  <Dialog open={backupOpen} onOpenChange={setBackupOpen}>
+                    <DialogTrigger asChild>
+                      <button className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
+                        <Database className="w-5 h-5 text-orange-600" />
+                        النسخ الاحتياطي
+                      </button>
+                    </DialogTrigger>
+                    <DialogContent className="bg-[#eef2f6] border-none shadow-3d" dir="rtl">
+                      <DialogHeader><DialogTitle>النسخ الاحتياطي والاستعادة</DialogTitle></DialogHeader>
+                      <div className="space-y-6 py-4">
+                        <div className="space-y-2">
+                          <Label>إنشاء نسخة احتياطية</Label>
+                          <button onClick={handleCreateBackup} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2">
+                            <Download className="w-4 h-4" /> تحميل ملف النسخة
+                          </button>
+                        </div>
+                        <Separator />
+                        <div className="space-y-2">
+                          <Label>استعادة نسخة (لصق الكود)</Label>
+                          <textarea 
+                            className="w-full h-24 rounded-xl bg-white shadow-3d-inset border-none p-3 text-xs"
+                            placeholder="الصق كود النسخة الاحتياطية هنا..."
+                            value={restoreText}
+                            onChange={(e) => setRestoreText(e.target.value)}
+                          />
+                          <button onClick={handleRestoreBackup} className="w-full py-3 bg-orange-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2">
+                            <Upload className="w-4 h-4" /> استعادة البيانات
+                          </button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+
+                  <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+                    <DialogTrigger asChild>
+                      <button className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
+                        <Trash2 className="w-5 h-5 text-red-600" />
+                        بيانات النظام
+                      </button>
+                    </DialogTrigger>
+                    <DialogContent className="bg-[#eef2f6] border-none shadow-3d" dir="rtl">
+                      <DialogHeader><DialogTitle>إدارة وحذف البيانات</DialogTitle></DialogHeader>
+                      <div className="space-y-3 py-4">
+                        <button onClick={() => { if(confirm('هل أنت متأكد من حذف جميع المعقبين؟')) { clearAgents(); alert('تم الحذف'); window.location.reload(); } }} className="w-full py-3 bg-white text-red-600 rounded-xl font-bold shadow-3d hover:bg-red-50 text-right px-4">حذف المعقبين</button>
+                        <button onClick={() => { if(confirm('هل أنت متأكد من حذف جميع العملاء؟')) { clearClients(); alert('تم الحذف'); window.location.reload(); } }} className="w-full py-3 bg-white text-red-600 rounded-xl font-bold shadow-3d hover:bg-red-50 text-right px-4">حذف العملاء</button>
+                        <button onClick={() => { if(confirm('هل أنت متأكد من حذف جميع المعاملات؟')) { clearTransactions(); alert('تم الحذف'); window.location.reload(); } }} className="w-full py-3 bg-white text-red-600 rounded-xl font-bold shadow-3d hover:bg-red-50 text-right px-4">حذف المعاملات</button>
+                        
+                        <div className="pt-4">
+                          <button onClick={() => setDeleteAllConfirm(true)} className="w-full py-4 bg-red-600 text-white rounded-xl font-black shadow-lg flex items-center justify-center gap-2 animate-pulse">
+                            <AlertTriangle className="w-5 h-5" />
+                            حذف الكل (تهيئة النظام)
+                          </button>
+                        </div>
+
+                        {deleteAllConfirm && (
+                          <div className="bg-red-100 border-2 border-red-500 p-4 rounded-xl mt-4 text-center animate-in zoom-in">
+                            <p className="text-red-800 font-bold mb-3">تحذير شديد اللهجة: سيتم حذف جميع البيانات نهائياً ولا يمكن استعادتها!</p>
+                            <div className="flex gap-2">
+                              <button onClick={() => { clearAllData(); window.location.reload(); }} className="flex-1 py-2 bg-red-600 text-white rounded-lg font-bold">نعم، احذف كل شيء</button>
+                              <button onClick={() => setDeleteAllConfirm(false)} className="flex-1 py-2 bg-gray-300 text-gray-800 rounded-lg font-bold">إلغاء</button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+
                   <button className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
-                    <Settings className="w-5 h-5 text-gray-600" />
-                    إعدادات النظام
+                    <Shield className="w-5 h-5 text-green-600" />
+                    سياسة الخصوصية
+                  </button>
+
+                  <button onClick={() => { if(confirm('سيتم حذف بياناتك الشخصية من المتصفح.')) { clearAllData(); window.location.reload(); }}} className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
+                    <UserCheck className="w-5 h-5 text-gray-600" />
+                    حذف بياناتي
                   </button>
                 </div>
 
