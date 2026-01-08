@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Users, Plus, Search, FileText, Phone, MessageCircle } from 'lucide-react';
+import { ArrowRight, Users, Plus, Search, FileText, Phone, MessageCircle, AlertCircle } from 'lucide-react';
 import { getStoredClients, saveStoredClients, Client, getStoredTransactions, Transaction } from '@/lib/store';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -9,9 +9,13 @@ import { Label } from '@/components/ui/label';
 export default function ClientsPage() {
   const navigate = useNavigate();
   const [clients, setClients] = useState<Client[]>([]);
+  
+  // Form States
   const [newClientName, setNewClientName] = useState('');
   const [newClientPhone, setNewClientPhone] = useState('');
   const [newClientWhatsapp, setNewClientWhatsapp] = useState('');
+  const [errors, setErrors] = useState({ phone: '', whatsapp: '' });
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [clientTxs, setClientTxs] = useState<Transaction[]>([]);
@@ -21,30 +25,65 @@ export default function ClientsPage() {
     setClients(getStoredClients());
   }, []);
 
+  const validateSaudiNumber = (num: string) => {
+    // Must be 9 digits and start with 5
+    const regex = /^5[0-9]{8}$/;
+    return regex.test(num);
+  };
+
   const handleAddClient = () => {
+    let hasError = false;
+    const newErrors = { phone: '', whatsapp: '' };
+
     if (!newClientName.trim()) return;
+
+    // Validate Phone
+    if (newClientPhone && !validateSaudiNumber(newClientPhone)) {
+        newErrors.phone = 'يجب أن يبدأ بـ 5 ويتكون من 9 أرقام';
+        hasError = true;
+    }
+
+    // Validate WhatsApp
+    if (newClientWhatsapp && !validateSaudiNumber(newClientWhatsapp)) {
+        newErrors.whatsapp = 'يجب أن يبدأ بـ 5 ويتكون من 9 أرقام';
+        hasError = true;
+    }
+
+    setErrors(newErrors);
+    if (hasError) return;
+
     const newClient: Client = {
       id: Date.now(),
       name: newClientName,
-      phone: newClientPhone,
-      whatsapp: newClientWhatsapp,
+      phone: newClientPhone ? `966${newClientPhone}` : '',
+      whatsapp: newClientWhatsapp ? `966${newClientWhatsapp}` : '',
       createdAt: Date.now()
     };
+
     const updated = [newClient, ...clients];
     setClients(updated);
     saveStoredClients(updated);
+    
+    // Reset
     setNewClientName('');
     setNewClientPhone('');
     setNewClientWhatsapp('');
+    setErrors({ phone: '', whatsapp: '' });
     setOpen(false);
   };
 
   const handleClientClick = (client: Client) => {
     const allTxs = getStoredTransactions();
-    // Filter by client name (simple simulation)
     const filtered = allTxs.filter(t => t.clientName === client.name);
     setClientTxs(filtered); 
     setSelectedClient(client);
+  };
+
+  const handleWhatsAppClick = (e: React.MouseEvent, number?: string) => {
+    e.stopPropagation();
+    if (!number) return;
+    // The number is already stored with 966 prefix
+    window.open(`https://wa.me/${number}`, '_blank');
   };
 
   const filteredClients = clients.filter(c => c.name.includes(searchTerm));
@@ -89,28 +128,46 @@ export default function ClientsPage() {
                             className="bg-white shadow-3d-inset border-none"
                         />
                     </div>
+                    
                     <div className="space-y-2">
                         <Label>رقم الجوال</Label>
-                        <div className="relative">
+                        <div className="relative flex items-center" dir="ltr">
+                            <div className="absolute left-3 z-10 text-gray-400 font-bold text-sm pointer-events-none">+966</div>
                             <Input 
                                 value={newClientPhone} 
-                                onChange={(e) => setNewClientPhone(e.target.value)} 
-                                className="bg-white shadow-3d-inset border-none pl-10"
+                                onChange={(e) => {
+                                    // Allow only numbers and max 9 digits
+                                    const val = e.target.value.replace(/\D/g, '').slice(0, 9);
+                                    setNewClientPhone(val);
+                                    if(errors.phone) setErrors({...errors, phone: ''});
+                                }} 
+                                className={`bg-white shadow-3d-inset border-none pl-14 text-left ${errors.phone ? 'ring-2 ring-red-400' : ''}`}
+                                placeholder="5xxxxxxxx"
                             />
-                            <Phone className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                            <Phone className="absolute right-3 w-4 h-4 text-gray-400" />
                         </div>
+                        {errors.phone && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {errors.phone}</p>}
                     </div>
+
                     <div className="space-y-2">
                         <Label>رقم الواتساب</Label>
-                        <div className="relative">
+                        <div className="relative flex items-center" dir="ltr">
+                            <div className="absolute left-3 z-10 text-green-600 font-bold text-sm pointer-events-none">+966</div>
                             <Input 
                                 value={newClientWhatsapp} 
-                                onChange={(e) => setNewClientWhatsapp(e.target.value)} 
-                                className="bg-white shadow-3d-inset border-none pl-10"
+                                onChange={(e) => {
+                                    const val = e.target.value.replace(/\D/g, '').slice(0, 9);
+                                    setNewClientWhatsapp(val);
+                                    if(errors.whatsapp) setErrors({...errors, whatsapp: ''});
+                                }} 
+                                className={`bg-white shadow-3d-inset border-none pl-14 text-left ${errors.whatsapp ? 'ring-2 ring-red-400' : ''}`}
+                                placeholder="5xxxxxxxx"
                             />
-                            <MessageCircle className="absolute left-3 top-3 w-4 h-4 text-green-500" />
+                            <MessageCircle className="absolute right-3 w-4 h-4 text-green-500" />
                         </div>
+                        {errors.whatsapp && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {errors.whatsapp}</p>}
                     </div>
+
                     <button onClick={handleAddClient} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg">حفظ</button>
                 </div>
             </DialogContent>
@@ -122,17 +179,27 @@ export default function ClientsPage() {
             <div 
                 key={client.id} 
                 onClick={() => handleClientClick(client)}
-                className="bg-[#eef2f6] p-4 rounded-2xl shadow-3d hover:shadow-3d-hover cursor-pointer transition-all flex items-center gap-4 border border-white/50"
+                className="bg-[#eef2f6] p-4 rounded-2xl shadow-3d hover:shadow-3d-hover cursor-pointer transition-all flex items-center justify-between gap-4 border border-white/50"
             >
-                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 shadow-sm">
-                    <Users className="w-6 h-6" />
-                </div>
-                <div>
-                    <h3 className="font-bold text-gray-700 text-lg">{client.name}</h3>
-                    <div className="flex gap-2 text-xs text-gray-400 mt-1">
-                        {client.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3"/> {client.phone}</span>}
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 shadow-sm">
+                        <Users className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-gray-700 text-lg">{client.name}</h3>
+                        <div className="flex gap-2 text-xs text-gray-400 mt-1">
+                            {client.phone && <span className="flex items-center gap-1" dir="ltr">+{client.phone} <Phone className="w-3 h-3"/></span>}
+                        </div>
                     </div>
                 </div>
+                {client.whatsapp && (
+                    <button 
+                        onClick={(e) => handleWhatsAppClick(e, client.whatsapp)}
+                        className="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center shadow-3d hover:scale-110 transition-transform"
+                    >
+                        <MessageCircle className="w-5 h-5" />
+                    </button>
+                )}
             </div>
         ))}
       </div>

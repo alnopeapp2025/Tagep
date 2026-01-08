@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, UserCheck, Plus, Search, FileText, Phone, MessageCircle } from 'lucide-react';
+import { ArrowRight, UserCheck, Plus, Search, FileText, Phone, MessageCircle, AlertCircle } from 'lucide-react';
 import { getStoredAgents, saveStoredAgents, Agent, getStoredTransactions, Transaction } from '@/lib/store';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -9,9 +9,13 @@ import { Label } from '@/components/ui/label';
 export default function AgentsPage() {
   const navigate = useNavigate();
   const [agents, setAgents] = useState<Agent[]>([]);
+  
+  // Form States
   const [newAgentName, setNewAgentName] = useState('');
   const [newAgentPhone, setNewAgentPhone] = useState('');
   const [newAgentWhatsapp, setNewAgentWhatsapp] = useState('');
+  const [errors, setErrors] = useState({ phone: '', whatsapp: '' });
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [agentTxs, setAgentTxs] = useState<Transaction[]>([]);
@@ -21,21 +25,45 @@ export default function AgentsPage() {
     setAgents(getStoredAgents());
   }, []);
 
+  const validateSaudiNumber = (num: string) => {
+    const regex = /^5[0-9]{8}$/;
+    return regex.test(num);
+  };
+
   const handleAddAgent = () => {
+    let hasError = false;
+    const newErrors = { phone: '', whatsapp: '' };
+
     if (!newAgentName.trim()) return;
+
+    if (newAgentPhone && !validateSaudiNumber(newAgentPhone)) {
+        newErrors.phone = 'يجب أن يبدأ بـ 5 ويتكون من 9 أرقام';
+        hasError = true;
+    }
+
+    if (newAgentWhatsapp && !validateSaudiNumber(newAgentWhatsapp)) {
+        newErrors.whatsapp = 'يجب أن يبدأ بـ 5 ويتكون من 9 أرقام';
+        hasError = true;
+    }
+
+    setErrors(newErrors);
+    if (hasError) return;
+
     const newAgent: Agent = {
       id: Date.now(),
       name: newAgentName,
-      phone: newAgentPhone,
-      whatsapp: newAgentWhatsapp,
+      phone: newAgentPhone ? `966${newAgentPhone}` : '',
+      whatsapp: newAgentWhatsapp ? `966${newAgentWhatsapp}` : '',
       createdAt: Date.now()
     };
     const updated = [newAgent, ...agents];
     setAgents(updated);
     saveStoredAgents(updated);
+    
     setNewAgentName('');
     setNewAgentPhone('');
     setNewAgentWhatsapp('');
+    setErrors({ phone: '', whatsapp: '' });
     setOpen(false);
   };
 
@@ -44,6 +72,12 @@ export default function AgentsPage() {
     const filtered = allTxs.filter(t => t.agent === agent.name);
     setAgentTxs(filtered); 
     setSelectedAgent(agent);
+  };
+
+  const handleWhatsAppClick = (e: React.MouseEvent, number?: string) => {
+    e.stopPropagation();
+    if (!number) return;
+    window.open(`https://wa.me/${number}`, '_blank');
   };
 
   const filteredAgents = agents.filter(a => a.name.includes(searchTerm));
@@ -88,28 +122,45 @@ export default function AgentsPage() {
                             className="bg-white shadow-3d-inset border-none"
                         />
                     </div>
+                    
                     <div className="space-y-2">
                         <Label>رقم الجوال</Label>
-                        <div className="relative">
+                        <div className="relative flex items-center" dir="ltr">
+                            <div className="absolute left-3 z-10 text-gray-400 font-bold text-sm pointer-events-none">+966</div>
                             <Input 
                                 value={newAgentPhone} 
-                                onChange={(e) => setNewAgentPhone(e.target.value)} 
-                                className="bg-white shadow-3d-inset border-none pl-10"
+                                onChange={(e) => {
+                                    const val = e.target.value.replace(/\D/g, '').slice(0, 9);
+                                    setNewAgentPhone(val);
+                                    if(errors.phone) setErrors({...errors, phone: ''});
+                                }} 
+                                className={`bg-white shadow-3d-inset border-none pl-14 text-left ${errors.phone ? 'ring-2 ring-red-400' : ''}`}
+                                placeholder="5xxxxxxxx"
                             />
-                            <Phone className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                            <Phone className="absolute right-3 w-4 h-4 text-gray-400" />
                         </div>
+                        {errors.phone && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {errors.phone}</p>}
                     </div>
+
                     <div className="space-y-2">
                         <Label>رقم الواتساب</Label>
-                        <div className="relative">
+                        <div className="relative flex items-center" dir="ltr">
+                            <div className="absolute left-3 z-10 text-green-600 font-bold text-sm pointer-events-none">+966</div>
                             <Input 
                                 value={newAgentWhatsapp} 
-                                onChange={(e) => setNewAgentWhatsapp(e.target.value)} 
-                                className="bg-white shadow-3d-inset border-none pl-10"
+                                onChange={(e) => {
+                                    const val = e.target.value.replace(/\D/g, '').slice(0, 9);
+                                    setNewAgentWhatsapp(val);
+                                    if(errors.whatsapp) setErrors({...errors, whatsapp: ''});
+                                }} 
+                                className={`bg-white shadow-3d-inset border-none pl-14 text-left ${errors.whatsapp ? 'ring-2 ring-red-400' : ''}`}
+                                placeholder="5xxxxxxxx"
                             />
-                            <MessageCircle className="absolute left-3 top-3 w-4 h-4 text-green-500" />
+                            <MessageCircle className="absolute right-3 w-4 h-4 text-green-500" />
                         </div>
+                        {errors.whatsapp && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {errors.whatsapp}</p>}
                     </div>
+
                     <button onClick={handleAddAgent} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg">حفظ</button>
                 </div>
             </DialogContent>
@@ -121,17 +172,27 @@ export default function AgentsPage() {
             <div 
                 key={agent.id} 
                 onClick={() => handleAgentClick(agent)}
-                className="bg-[#eef2f6] p-4 rounded-2xl shadow-3d hover:shadow-3d-hover cursor-pointer transition-all flex items-center gap-4 border border-white/50"
+                className="bg-[#eef2f6] p-4 rounded-2xl shadow-3d hover:shadow-3d-hover cursor-pointer transition-all flex items-center justify-between gap-4 border border-white/50"
             >
-                <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 shadow-sm">
-                    <UserCheck className="w-6 h-6" />
-                </div>
-                <div>
-                    <h3 className="font-bold text-gray-700 text-lg">{agent.name}</h3>
-                    <div className="flex gap-2 text-xs text-gray-400 mt-1">
-                        {agent.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3"/> {agent.phone}</span>}
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 shadow-sm">
+                        <UserCheck className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-gray-700 text-lg">{agent.name}</h3>
+                        <div className="flex gap-2 text-xs text-gray-400 mt-1">
+                            {agent.phone && <span className="flex items-center gap-1" dir="ltr">+{agent.phone} <Phone className="w-3 h-3"/></span>}
+                        </div>
                     </div>
                 </div>
+                {agent.whatsapp && (
+                    <button 
+                        onClick={(e) => handleWhatsAppClick(e, agent.whatsapp)}
+                        className="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center shadow-3d hover:scale-110 transition-transform"
+                    >
+                        <MessageCircle className="w-5 h-5" />
+                    </button>
+                )}
             </div>
         ))}
       </div>

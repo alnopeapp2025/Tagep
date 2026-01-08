@@ -81,7 +81,10 @@ export default function LoginPage() {
           </button>
 
           <div className="grid grid-cols-2 gap-4 mt-4">
-            <button className="py-3 bg-[#eef2f6] text-gray-600 rounded-xl font-bold text-xs shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all flex items-center justify-center gap-1">
+            <button 
+              onClick={() => navigate('/register')}
+              className="py-3 bg-[#eef2f6] text-gray-600 rounded-xl font-bold text-xs shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all flex items-center justify-center gap-1"
+            >
               <UserPlus className="w-4 h-4" />
               عضوية جديدة
             </button>
