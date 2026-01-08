@@ -11,7 +11,9 @@ import {
   Trophy,
   Menu,
   Award,
-  LogIn
+  LogIn,
+  Receipt,
+  Calculator
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardButton } from '@/components/DashboardButton';
@@ -123,29 +125,44 @@ export default function Dashboard() {
           <DashboardButton 
             icon={BarChart3} 
             label="التقارير" 
-            onClick={() => console.log('Reports clicked')}
+            onClick={() => navigate('/reports')}
           />
 
           {/* العملاء */}
           <DashboardButton 
             icon={Users} 
             label="العملاء" 
-            onClick={() => console.log('Clients clicked')}
+            onClick={() => navigate('/clients')}
           />
 
           {/* المعقبين */}
           <DashboardButton 
             icon={UserCheck} 
             label="المعقبين" 
-            onClick={() => console.log('Agents clicked')}
+            onClick={() => navigate('/agents')}
           />
 
-          {/* المنجزين (NEW) */}
+          {/* المنجزين */}
           <DashboardButton 
             icon={Award} 
             label="المنجزين" 
             variant="primary"
             onClick={scrollToAchievers}
+          />
+
+          {/* المنصرفات (NEW) */}
+          <DashboardButton 
+            icon={Receipt} 
+            label="المنصرفات" 
+            variant="danger"
+            onClick={() => navigate('/expenses')}
+          />
+
+          {/* الآلة الحاسبة (NEW) */}
+          <DashboardButton 
+            icon={Calculator} 
+            label="الآلة الحاسبة" 
+            onClick={() => navigate('/calculator')}
           />
 
         </div>

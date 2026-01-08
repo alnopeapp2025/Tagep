@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Wallet, Trash2, Landmark, ArrowLeftRight } from 'lucide-react';
+import { ArrowRight, Wallet, Trash2, Landmark, ArrowLeftRight, Check, AlertCircle } from 'lucide-react';
 import { BANKS_LIST, getStoredBalances, saveStoredBalances } from '@/lib/store';
 import {
   Dialog,
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
 
 export default function AccountsPage() {
   const navigate = useNavigate();
@@ -27,6 +28,8 @@ export default function AccountsPage() {
   // Dialog States
   const [transferOpen, setTransferOpen] = useState(false);
   const [zeroOpen, setZeroOpen] = useState(false);
+  const [successMsg, setSuccessMsg] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   // Transfer Form
   const [transferFrom, setTransferFrom] = useState('');
@@ -45,31 +48,47 @@ export default function AccountsPage() {
   };
 
   const handleTransfer = () => {
+    setErrorMsg('');
     const amount = parseFloat(transferAmount);
-    if (!transferFrom || !transferTo || !amount || amount <= 0) return;
 
-    // FIX: Ensure we handle undefined balances by defaulting to 0
-    // This prevents 'NaN' errors when transferring to/from new accounts
+    // Validation 1: Check inputs
+    if (!transferFrom || !transferTo) {
+        setErrorMsg("يرجى اختيار الحسابات");
+        return;
+    }
+
+    // Validation 2: Check Amount > 0
+    if (!amount || amount <= 0) {
+        setErrorMsg("المبلغ المحول يجب أن يكون أكبر من 0");
+        return;
+    }
+
     const currentFromBalance = balances[transferFrom] || 0;
     const currentToBalance = balances[transferTo] || 0;
 
+    // Validation 3: Insufficient Funds
     if (currentFromBalance < amount) {
-      alert("رصيد البنك المحول منه غير كافي");
+      setErrorMsg("رصيد البنك المحول منه غير كافي");
       return;
     }
 
+    // Execute Transfer
     const newBalances = { ...balances };
-    
-    // Update balances safely
     newBalances[transferFrom] = currentFromBalance - amount;
     newBalances[transferTo] = currentToBalance + amount;
 
     saveStoredBalances(newBalances);
     loadData();
-    setTransferOpen(false);
-    setTransferFrom('');
-    setTransferTo('');
-    setTransferAmount('');
+    
+    // Show Success
+    setSuccessMsg(true);
+    setTimeout(() => {
+        setSuccessMsg(false);
+        setTransferOpen(false);
+        setTransferFrom('');
+        setTransferTo('');
+        setTransferAmount('');
+    }, 2000);
   };
 
   const handleZeroTreasury = () => {
@@ -146,43 +165,81 @@ export default function AccountsPage() {
       </div>
 
       {/* Transfer Dialog */}
-      <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
+      <Dialog open={transferOpen} onOpenChange={(open) => {
+          if(!open) {
+              setSuccessMsg(false);
+              setErrorMsg('');
+          }
+          setTransferOpen(open);
+      }}>
         <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
           <DialogHeader>
             <DialogTitle className="text-center text-xl font-bold">تحويل رصيد</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>من حساب</Label>
-              <Select onValueChange={setTransferFrom} value={transferFrom}>
-                <SelectTrigger className="bg-white shadow-3d-inset border-none h-12"><SelectValue placeholder="اختر البنك" /></SelectTrigger>
-                <SelectContent dir="rtl">
-                  {BANKS_LIST.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>إلى حساب</Label>
-              <Select onValueChange={setTransferTo} value={transferTo}>
-                <SelectTrigger className="bg-white shadow-3d-inset border-none h-12"><SelectValue placeholder="اختر البنك" /></SelectTrigger>
-                <SelectContent dir="rtl">
-                  {BANKS_LIST.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>المبلغ</Label>
-              <Input 
-                type="number" 
-                className="bg-white shadow-3d-inset border-none h-12"
-                value={transferAmount}
-                onChange={(e) => setTransferAmount(e.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <button onClick={handleTransfer} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:bg-blue-700">تأكيد التحويل</button>
-          </DialogFooter>
+          
+          {successMsg ? (
+              <div className="py-10 flex flex-col items-center justify-center animate-in zoom-in duration-300">
+                  <div className="w-20 h-20 bg-[#eef2f6] rounded-full shadow-3d flex items-center justify-center mb-4 text-green-500 border-4 border-green-100">
+                      <Check className="w-10 h-10" strokeWidth={3} />
+                  </div>
+                  <h3 className="text-xl font-bold text-green-600">تم التحويل بنجاح</h3>
+              </div>
+          ) : (
+            <>
+                <div className="space-y-4 py-4">
+                    {/* From Account */}
+                    <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                        <Label>من حساب</Label>
+                        {transferFrom && (
+                            <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md shadow-sm">
+                                الرصيد: {(balances[transferFrom] || 0).toLocaleString()} ر.س
+                            </span>
+                        )}
+                    </div>
+                    <Select onValueChange={setTransferFrom} value={transferFrom}>
+                        <SelectTrigger className="bg-white shadow-3d-inset border-none h-12"><SelectValue placeholder="اختر البنك" /></SelectTrigger>
+                        <SelectContent dir="rtl">
+                        {BANKS_LIST.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                    </div>
+
+                    {/* To Account */}
+                    <div className="space-y-2">
+                    <Label>إلى حساب</Label>
+                    <Select onValueChange={setTransferTo} value={transferTo}>
+                        <SelectTrigger className="bg-white shadow-3d-inset border-none h-12"><SelectValue placeholder="اختر البنك" /></SelectTrigger>
+                        <SelectContent dir="rtl">
+                        {BANKS_LIST.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                    </div>
+
+                    {/* Amount */}
+                    <div className="space-y-2">
+                    <Label>المبلغ</Label>
+                    <Input 
+                        type="number" 
+                        className="bg-white shadow-3d-inset border-none h-12"
+                        value={transferAmount}
+                        onChange={(e) => setTransferAmount(e.target.value)}
+                    />
+                    </div>
+
+                    {/* Error Message */}
+                    {errorMsg && (
+                        <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm font-bold flex items-center gap-2 border border-red-100 shadow-sm animate-in fade-in slide-in-from-top-1">
+                            <AlertCircle className="w-4 h-4" />
+                            {errorMsg}
+                        </div>
+                    )}
+                </div>
+                <DialogFooter>
+                    <button onClick={handleTransfer} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:bg-blue-700 active:scale-95 transition-all">تأكيد التحويل</button>
+                </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 
