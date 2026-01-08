@@ -50,13 +50,11 @@ export default function AccountsPage() {
     setErrorMsg('');
     const amount = parseFloat(transferAmount);
 
-    // Validation 1: Check inputs
     if (!transferFrom || !transferTo) {
         setErrorMsg("يرجى اختيار الحسابات");
         return;
     }
 
-    // Validation 2: Check Amount > 0
     if (!amount || amount <= 0) {
         setErrorMsg("المبلغ المحول يجب أن يكون أكبر من 0");
         return;
@@ -65,13 +63,11 @@ export default function AccountsPage() {
     const currentFromBalance = balances[transferFrom] || 0;
     const currentToBalance = balances[transferTo] || 0;
 
-    // Validation 3: Insufficient Funds
     if (currentFromBalance < amount) {
       setErrorMsg("رصيد البنك المحول منه غير كافي");
       return;
     }
 
-    // Execute Transfer
     const newBalances = { ...balances };
     newBalances[transferFrom] = currentFromBalance - amount;
     newBalances[transferTo] = currentToBalance + amount;
@@ -79,7 +75,6 @@ export default function AccountsPage() {
     saveStoredBalances(newBalances);
     loadData();
     
-    // Show Success
     setSuccessMsg(true);
     setTimeout(() => {
         setSuccessMsg(false);
@@ -99,7 +94,6 @@ export default function AccountsPage() {
 
   return (
     <div className="max-w-6xl mx-auto pb-20">
-      {/* Header */}
       <header className="mb-8 flex items-center gap-4">
         <button 
           onClick={() => navigate('/')}
@@ -113,7 +107,6 @@ export default function AccountsPage() {
         </div>
       </header>
 
-      {/* Total Treasury Card */}
       <div className="mb-10">
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 to-blue-800 text-white shadow-3d p-8 flex flex-col items-center justify-center text-center min-h-[200px]">
            <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
@@ -125,7 +118,6 @@ export default function AccountsPage() {
         </div>
       </div>
 
-      {/* Actions */}
       <div className="flex gap-4 mb-10 justify-center">
         <button 
           onClick={() => setTransferOpen(true)}
@@ -143,7 +135,6 @@ export default function AccountsPage() {
         </button>
       </div>
 
-      {/* Banks Grid */}
       <h3 className="text-xl font-bold text-gray-700 mb-6 flex items-center gap-2">
         <Landmark className="w-6 h-6 text-gray-500" />
         تفاصيل البنوك
@@ -163,7 +154,6 @@ export default function AccountsPage() {
         ))}
       </div>
 
-      {/* Transfer Dialog */}
       <Dialog open={transferOpen} onOpenChange={(open) => {
           if(!open) {
               setSuccessMsg(false);
@@ -186,12 +176,13 @@ export default function AccountsPage() {
           ) : (
             <>
                 <div className="space-y-4 py-4">
-                    {/* From Account */}
                     <div className="space-y-2">
                     <div className="flex justify-between items-center">
                         <Label>من حساب</Label>
                         {transferFrom && (
-                            <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md shadow-sm">
+                            <span className={`text-xs font-bold px-2 py-1 rounded-md shadow-sm ${
+                                (balances[transferFrom] || 0) > 0 ? 'text-green-600 bg-green-50' : 'text-red-500 bg-red-50'
+                            }`}>
                                 الرصيد: {(balances[transferFrom] || 0).toLocaleString()} ر.س
                             </span>
                         )}
@@ -204,9 +195,17 @@ export default function AccountsPage() {
                     </Select>
                     </div>
 
-                    {/* To Account */}
                     <div className="space-y-2">
-                    <Label>إلى حساب</Label>
+                    <div className="flex justify-between items-center">
+                        <Label>إلى حساب</Label>
+                        {transferTo && (
+                             <span className={`text-xs font-bold px-2 py-1 rounded-md shadow-sm ${
+                                (balances[transferTo] || 0) > 0 ? 'text-green-600 bg-green-50' : 'text-red-500 bg-red-50'
+                            }`}>
+                                الرصيد: {(balances[transferTo] || 0).toLocaleString()} ر.س
+                            </span>
+                        )}
+                    </div>
                     <Select onValueChange={setTransferTo} value={transferTo}>
                         <SelectTrigger className="bg-white shadow-3d-inset border-none h-12"><SelectValue placeholder="اختر البنك" /></SelectTrigger>
                         <SelectContent dir="rtl">
@@ -215,7 +214,6 @@ export default function AccountsPage() {
                     </Select>
                     </div>
 
-                    {/* Amount */}
                     <div className="space-y-2">
                     <Label>المبلغ</Label>
                     <Input 
@@ -226,7 +224,6 @@ export default function AccountsPage() {
                     />
                     </div>
 
-                    {/* Error Message */}
                     {errorMsg && (
                         <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm font-bold flex items-center gap-2 border border-red-100 shadow-sm animate-in fade-in slide-in-from-top-1">
                             <AlertCircle className="w-4 h-4" />
@@ -241,23 +238,6 @@ export default function AccountsPage() {
           )}
         </DialogContent>
       </Dialog>
-
-      {/* Zero Confirm Dialog */}
-      <Dialog open={zeroOpen} onOpenChange={setZeroOpen}>
-        <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
-          <DialogHeader>
-            <DialogTitle className="text-center text-xl font-bold text-red-600">تنبيه هام!</DialogTitle>
-          </DialogHeader>
-          <div className="text-center text-gray-600 py-4">
-            هل أنت متأكد من رغبتك في تصفير جميع الحسابات؟ لا يمكن التراجع عن هذا الإجراء.
-          </div>
-          <DialogFooter className="flex gap-2">
-            <button onClick={() => setZeroOpen(false)} className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-xl font-bold">إلغاء</button>
-            <button onClick={handleZeroTreasury} className="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold shadow-lg">نعم، تصفير</button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
     </div>
   );
 }

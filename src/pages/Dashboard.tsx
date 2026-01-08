@@ -13,7 +13,10 @@ import {
   Award,
   LogIn,
   Receipt,
-  Calculator
+  Calculator,
+  Activity,
+  Clock,
+  CheckCircle2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardButton } from '@/components/DashboardButton';
@@ -30,10 +33,36 @@ import {
 export default function Dashboard() {
   const navigate = useNavigate();
   const [achievers, setAchievers] = useState<{name: string, count: number, total: number}[]>([]);
+  
+  // Ticker State
+  const [tickerIndex, setTickerIndex] = useState(0);
+  const [tickerStats, setTickerStats] = useState({
+    active: 0,
+    inProgress: 0,
+    completedWeek: 0
+  });
 
   useEffect(() => {
     const txs = getStoredTransactions();
     setAchievers(calculateAchievers(txs));
+
+    // Calculate Ticker Stats
+    const now = Date.now();
+    const startOfWeek = new Date();
+    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+    
+    const active = txs.filter(t => t.status === 'active').length;
+    const inProgress = txs.filter(t => t.status === 'active' && t.targetDate > now).length;
+    const completedWeek = txs.filter(t => t.status === 'completed' && t.createdAt >= startOfWeek.getTime()).length;
+
+    setTickerStats({ active, inProgress, completedWeek });
+
+    // Ticker Interval
+    const interval = setInterval(() => {
+      setTickerIndex(prev => (prev + 1) % 3);
+    }, 4000); // Switch every 4 seconds
+
+    return () => clearInterval(interval);
   }, []);
 
   const scrollToAchievers = () => {
@@ -42,6 +71,12 @@ export default function Dashboard() {
       element.scrollIntoView({ behavior: 'smooth' });
     }
   };
+
+  const tickerItems = [
+    { label: "المعاملات النشطة", value: tickerStats.active, icon: Activity, color: "text-blue-600" },
+    { label: "تحت الإنجاز", value: tickerStats.inProgress, icon: Clock, color: "text-orange-600" },
+    { label: "إنجاز هذا الأسبوع", value: tickerStats.completedWeek, icon: CheckCircle2, color: "text-green-600" }
+  ];
 
   return (
     <div className="min-h-screen pb-10">
@@ -79,7 +114,7 @@ export default function Dashboard() {
                 </SheetHeader>
                 
                 <div className="flex flex-col gap-4">
-                  <button className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
+                  <button onClick={() => navigate('/login')} className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
                     <LogIn className="w-5 h-5 text-blue-600" />
                     تسجيل دخول
                   </button>
@@ -150,7 +185,7 @@ export default function Dashboard() {
             onClick={scrollToAchievers}
           />
 
-          {/* المنصرفات (NEW) */}
+          {/* المنصرفات */}
           <DashboardButton 
             icon={Receipt} 
             label="المنصرفات" 
@@ -158,10 +193,10 @@ export default function Dashboard() {
             onClick={() => navigate('/expenses')}
           />
 
-          {/* الآلة الحاسبة (NEW) */}
+          {/* الحاسبة */}
           <DashboardButton 
             icon={Calculator} 
-            label="الآلة الحاسبة" 
+            label="الحاسبة" 
             onClick={() => navigate('/calculator')}
           />
 
@@ -206,23 +241,39 @@ export default function Dashboard() {
 
         {/* Footer / Stats Area */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="p-6 rounded-2xl bg-[#eef2f6] shadow-3d">
+            <div className="p-6 rounded-2xl bg-[#eef2f6] shadow-3d relative overflow-hidden">
                 <h3 className="text-lg font-bold text-gray-700 mb-4">ملخص سريع</h3>
-                <div className="space-y-3">
-                    <div className="flex justify-between items-center p-3 rounded-xl shadow-3d-inset bg-[#eef2f6]">
-                        <span className="text-gray-600">المعاملات النشطة</span>
-                        <span className="font-bold text-blue-600">24</span>
-                    </div>
-                    <div className="flex justify-between items-center p-3 rounded-xl shadow-3d-inset bg-[#eef2f6]">
-                        <span className="text-gray-600">رصيد الصندوق</span>
-                        <span className="font-bold text-green-600">15,400 ر.س</span>
-                    </div>
+                
+                {/* Ticker Container */}
+                <div className="relative h-16 w-full">
+                  {tickerItems.map((item, idx) => {
+                    const isActive = idx === tickerIndex;
+                    return (
+                      <div 
+                        key={idx}
+                        className={`absolute top-0 left-0 w-full transition-all duration-500 ease-in-out transform ${
+                          isActive ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
+                        }`}
+                      >
+                        <div className="flex justify-between items-center p-3 rounded-xl shadow-3d-inset bg-[#eef2f6]">
+                            <div className="flex items-center gap-3">
+                              <item.icon className={`w-5 h-5 ${item.color}`} />
+                              <span className="text-gray-600 font-bold">{item.label}</span>
+                            </div>
+                            <span className={`font-black text-xl ${item.color}`}>{item.value}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
             </div>
 
             <div className="p-6 rounded-2xl bg-[#eef2f6] shadow-3d flex flex-col items-center justify-center text-center">
                 <p className="text-gray-500 mb-4">هل تحتاج إلى مساعدة؟</p>
-                <button className="px-8 py-3 rounded-xl bg-[#eef2f6] text-red-500 font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all flex items-center gap-2">
+                <button 
+                  onClick={() => navigate('/login')}
+                  className="px-8 py-3 rounded-xl bg-[#eef2f6] text-red-500 font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all flex items-center gap-2"
+                >
                     <LogOut className="w-5 h-5" />
                     تسجيل الخروج
                 </button>

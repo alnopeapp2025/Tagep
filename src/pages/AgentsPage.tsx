@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, UserCheck, Plus, Search, FileText } from 'lucide-react';
+import { ArrowRight, UserCheck, Plus, Search, FileText, Phone, MessageCircle } from 'lucide-react';
 import { getStoredAgents, saveStoredAgents, Agent, getStoredTransactions, Transaction } from '@/lib/store';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -10,6 +10,8 @@ export default function AgentsPage() {
   const navigate = useNavigate();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [newAgentName, setNewAgentName] = useState('');
+  const [newAgentPhone, setNewAgentPhone] = useState('');
+  const [newAgentWhatsapp, setNewAgentWhatsapp] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [agentTxs, setAgentTxs] = useState<Transaction[]>([]);
@@ -24,18 +26,21 @@ export default function AgentsPage() {
     const newAgent: Agent = {
       id: Date.now(),
       name: newAgentName,
+      phone: newAgentPhone,
+      whatsapp: newAgentWhatsapp,
       createdAt: Date.now()
     };
     const updated = [newAgent, ...agents];
     setAgents(updated);
     saveStoredAgents(updated);
     setNewAgentName('');
+    setNewAgentPhone('');
+    setNewAgentWhatsapp('');
     setOpen(false);
   };
 
   const handleAgentClick = (agent: Agent) => {
     const allTxs = getStoredTransactions();
-    // Filter transactions by Agent Name
     const filtered = allTxs.filter(t => t.agent === agent.name);
     setAgentTxs(filtered); 
     setSelectedAgent(agent);
@@ -83,6 +88,28 @@ export default function AgentsPage() {
                             className="bg-white shadow-3d-inset border-none"
                         />
                     </div>
+                    <div className="space-y-2">
+                        <Label>رقم الجوال</Label>
+                        <div className="relative">
+                            <Input 
+                                value={newAgentPhone} 
+                                onChange={(e) => setNewAgentPhone(e.target.value)} 
+                                className="bg-white shadow-3d-inset border-none pl-10"
+                            />
+                            <Phone className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>رقم الواتساب</Label>
+                        <div className="relative">
+                            <Input 
+                                value={newAgentWhatsapp} 
+                                onChange={(e) => setNewAgentWhatsapp(e.target.value)} 
+                                className="bg-white shadow-3d-inset border-none pl-10"
+                            />
+                            <MessageCircle className="absolute left-3 top-3 w-4 h-4 text-green-500" />
+                        </div>
+                    </div>
                     <button onClick={handleAddAgent} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg">حفظ</button>
                 </div>
             </DialogContent>
@@ -99,12 +126,16 @@ export default function AgentsPage() {
                 <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 shadow-sm">
                     <UserCheck className="w-6 h-6" />
                 </div>
-                <h3 className="font-bold text-gray-700 text-lg">{agent.name}</h3>
+                <div>
+                    <h3 className="font-bold text-gray-700 text-lg">{agent.name}</h3>
+                    <div className="flex gap-2 text-xs text-gray-400 mt-1">
+                        {agent.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3"/> {agent.phone}</span>}
+                    </div>
+                </div>
             </div>
         ))}
       </div>
 
-      {/* Agent Details Dialog */}
       <Dialog open={!!selectedAgent} onOpenChange={(open) => !open && setSelectedAgent(null)}>
         <DialogContent className="bg-[#eef2f6] shadow-3d border-none max-w-2xl" dir="rtl">
             <DialogHeader>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ArrowRight, Plus, Clock, CheckCircle, XCircle, Banknote, AlertCircle, Wallet } from 'lucide-react';
+import { ArrowRight, Plus, Clock, CheckCircle, XCircle, Banknote, AlertCircle, Wallet, Printer, Send, UserPlus, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent } from '@/components/ui/card';
-import { getStoredTransactions, saveStoredTransactions, getStoredBalances, saveStoredBalances, BANKS_LIST } from '@/lib/store';
+import { getStoredTransactions, saveStoredTransactions, getStoredBalances, saveStoredBalances, BANKS_LIST, getStoredClients, saveStoredClients, Client } from '@/lib/store';
 
 // --- Types ---
 export interface Transaction {
@@ -31,6 +31,7 @@ export interface Transaction {
   clientPrice: string;
   agentPrice: string;
   agent: string;
+  clientName?: string; // New Field
   duration: string;
   paymentMethod: string;
   createdAt: number;
@@ -87,11 +88,16 @@ export default function TransactionsPage() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   
-  // Wallet State (Real Data from Store)
+  // Wallet State
   const [officeBalance, setOfficeBalance] = useState(0);
 
   // Transactions State
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+
+  // Clients State
+  const [clients, setClients] = useState<Client[]>([]);
+  const [addClientOpen, setAddClientOpen] = useState(false);
+  const [newClientName, setNewClientName] = useState('');
 
   // Form State
   const [inputTypeMode, setInputTypeMode] = useState<'manual' | 'select'>('manual');
@@ -103,6 +109,7 @@ export default function TransactionsPage() {
     agentPrice: '',
     clientPrice: '',
     agent: '',
+    clientName: '',
     duration: '',
     paymentMethod: ''
   });
@@ -117,6 +124,7 @@ export default function TransactionsPage() {
   useEffect(() => {
     const loadedTxs = getStoredTransactions();
     setTransactions(loadedTxs);
+    setClients(getStoredClients());
     updateBalancesDisplay();
   }, []);
 
@@ -161,6 +169,7 @@ export default function TransactionsPage() {
       clientPrice: formData.clientPrice,
       agentPrice: formData.agentPrice,
       agent: formData.agent,
+      clientName: formData.clientName || 'عميل عام',
       duration: formData.duration,
       paymentMethod: formData.paymentMethod,
       createdAt: Date.now(),
@@ -180,10 +189,28 @@ export default function TransactionsPage() {
       agentPrice: '',
       clientPrice: '',
       agent: '',
+      clientName: '',
       duration: '',
       paymentMethod: ''
     });
     setErrors({});
+  };
+
+  const handleAddClientQuick = () => {
+    if(!newClientName.trim()) return;
+    const newClient: Client = {
+      id: Date.now(),
+      name: newClientName,
+      createdAt: Date.now()
+    };
+    const updated = [newClient, ...clients];
+    setClients(updated);
+    saveStoredClients(updated);
+    
+    // Auto select the new client
+    setFormData(prev => ({ ...prev, clientName: newClientName }));
+    setNewClientName('');
+    setAddClientOpen(false);
   };
 
   const updateStatus = (id: number, newStatus: 'completed' | 'cancelled') => {
@@ -191,7 +218,6 @@ export default function TransactionsPage() {
     if (!tx) return;
 
     if (newStatus === 'completed' && tx.status === 'active') {
-        // Update Bank Balance
         const clientP = parseFloat(tx.clientPrice) || 0;
         const currentBalances = getStoredBalances();
         
@@ -207,6 +233,15 @@ export default function TransactionsPage() {
     );
     setTransactions(updatedTxs);
     saveStoredTransactions(updatedTxs);
+  };
+
+  const handlePrint = (tx: Transaction) => {
+    window.print();
+  };
+
+  const handleWhatsApp = (tx: Transaction) => {
+    const text = `تفاصيل المعاملة:\nنوع: ${tx.type}\nالسعر: ${tx.clientPrice} ر.س\nرقم: ${tx.serialNo}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   };
 
   return (
@@ -287,17 +322,19 @@ export default function TransactionsPage() {
                  </div>
 
                  {inputTypeMode === 'manual' ? (
-                    <Input 
-                        ref={manualTypeRef}
-                        placeholder="اكتب المعاملة هنا.. مثلاً" 
-                        value={formData.manualType}
-                        onChange={(e) => {
-                            setFormData({...formData, manualType: e.target.value});
-                            if(errors.type) setErrors({...errors, type: ''});
-                        }}
-                        onKeyDown={(e) => handleKeyDown(e, agentPriceRef)}
-                        className="bg-[#eef2f6] shadow-3d-inset border-none h-10 text-sm"
-                    />
+                    <div className="relative">
+                        <Input 
+                            ref={manualTypeRef}
+                            placeholder="اكتب المعاملة هنا.. مثلاً" 
+                            value={formData.manualType}
+                            onChange={(e) => {
+                                setFormData({...formData, manualType: e.target.value});
+                                if(errors.type) setErrors({...errors, type: ''});
+                            }}
+                            onKeyDown={(e) => handleKeyDown(e, agentPriceRef)}
+                            className="bg-[#eef2f6] shadow-3d-inset border-none h-10 text-sm animate-pulse-placeholder"
+                        />
+                    </div>
                  ) : (
                     <Select 
                         onValueChange={(val) => {
@@ -305,7 +342,7 @@ export default function TransactionsPage() {
                             if(errors.type) setErrors({...errors, type: ''});
                         }}
                     >
-                        <SelectTrigger className="h-10 rounded-xl bg-[#eef2f6] border-none shadow-3d-inset text-right flex-row-reverse text-sm">
+                        <SelectTrigger className="h-10 rounded-xl bg-[#eef2f6] border-none shadow-3d-inset text-right flex-row-reverse text-sm [&>svg]:text-red-500 [&>svg]:animate-pulse">
                         <SelectValue placeholder="اختر معاملة..." />
                         </SelectTrigger>
                         <SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">
@@ -387,7 +424,48 @@ export default function TransactionsPage() {
                 </Select>
               </div>
 
-              {/* 4. Duration & Payment */}
+               {/* 4. Client Selection with Add Button */}
+               <div className="space-y-1">
+                <Label className="text-gray-700 font-bold text-xs">العميل</Label>
+                <div className="flex gap-2">
+                    <div className="flex-1">
+                        <Select 
+                            value={formData.clientName}
+                            onValueChange={(val) => setFormData({...formData, clientName: val})}
+                        >
+                            <SelectTrigger className="h-10 rounded-xl bg-[#eef2f6] shadow-3d-inset text-right flex-row-reverse text-sm border-none">
+                                <SelectValue placeholder="اختر عميل..." />
+                            </SelectTrigger>
+                            <SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">
+                                {clients.map((client) => (
+                                    <SelectItem key={client.id} value={client.name} className="text-right">{client.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <Dialog open={addClientOpen} onOpenChange={setAddClientOpen}>
+                        <DialogTrigger asChild>
+                            <button className="w-10 h-10 rounded-xl bg-blue-600 text-white shadow-3d flex items-center justify-center hover:bg-blue-700">
+                                <Plus className="w-5 h-5" />
+                            </button>
+                        </DialogTrigger>
+                        <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
+                            <DialogHeader><DialogTitle>إضافة عميل سريع</DialogTitle></DialogHeader>
+                            <div className="py-4 space-y-3">
+                                <Input 
+                                    placeholder="اسم العميل" 
+                                    value={newClientName}
+                                    onChange={(e) => setNewClientName(e.target.value)}
+                                    className="bg-white shadow-3d-inset border-none"
+                                />
+                                <button onClick={handleAddClientQuick} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold">حفظ وإكمال</button>
+                            </div>
+                        </DialogContent>
+                    </Dialog>
+                </div>
+              </div>
+
+              {/* 5. Duration & Payment */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label className="text-gray-700 font-bold text-xs">مدة الإنجاز (أيام)</Label>
@@ -461,62 +539,86 @@ export default function TransactionsPage() {
         ) : (
           <div className="grid grid-cols-1 gap-4">
             {transactions.map((tx) => (
-              <Card key={tx.id} className={cn(
-                "border-none shadow-3d bg-[#eef2f6] overflow-hidden transition-all",
-                tx.status === 'completed' ? "opacity-75" : "",
-                tx.status === 'cancelled' ? "opacity-60 grayscale" : ""
-              )}>
-                <CardContent className="p-0">
-                  <div className="flex flex-col">
-                    
-                    {/* Top Row: Info (One Line) */}
-                    <div className="flex items-center justify-between p-4 bg-white/40 border-b border-white/50">
-                        <div className="flex items-center gap-2 sm:gap-4 overflow-hidden">
-                            <span className="font-mono font-bold text-gray-400 text-sm">#{tx.serialNo}</span>
-                            <span className="h-4 w-[1px] bg-gray-300"></span>
-                            <span className="font-bold text-gray-800 text-sm truncate">{tx.type}</span>
-                            <span className="h-4 w-[1px] bg-gray-300"></span>
-                            <span className="font-bold text-blue-600 text-sm whitespace-nowrap">{tx.clientPrice} ر.س</span>
-                        </div>
-                        <div className={cn(
-                            "w-2 h-2 rounded-full",
-                            tx.status === 'active' ? "bg-blue-500 animate-pulse" : 
-                            tx.status === 'completed' ? "bg-green-500" : "bg-red-500"
-                        )} />
-                    </div>
+              <Dialog key={tx.id}>
+                <DialogTrigger asChild>
+                    <Card className={cn(
+                        "border-none shadow-3d bg-[#eef2f6] overflow-hidden transition-all cursor-pointer hover:scale-[1.01]",
+                        tx.status === 'completed' ? "opacity-75" : "",
+                        tx.status === 'cancelled' ? "opacity-60 grayscale" : ""
+                    )}>
+                        <CardContent className="p-0">
+                        <div className="flex flex-col">
+                            
+                            {/* Top Row: Info (One Line) */}
+                            <div className="flex items-center justify-between p-4 bg-white/40 border-b border-white/50">
+                                <div className="flex items-center gap-2 sm:gap-4 overflow-hidden">
+                                    <span className="font-mono font-bold text-gray-400 text-sm">#{tx.serialNo}</span>
+                                    <span className="h-4 w-[1px] bg-gray-300"></span>
+                                    <span className="font-bold text-gray-800 text-sm truncate">{tx.type}</span>
+                                    <span className="h-4 w-[1px] bg-gray-300"></span>
+                                    <span className="font-bold text-blue-600 text-sm whitespace-nowrap">{tx.clientPrice} ر.س</span>
+                                </div>
+                                <div className={cn(
+                                    "w-2 h-2 rounded-full",
+                                    tx.status === 'active' ? "bg-blue-500 animate-pulse" : 
+                                    tx.status === 'completed' ? "bg-green-500" : "bg-red-500"
+                                )} />
+                            </div>
 
-                    {/* Middle: Timer & Actions */}
-                    <div className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-                        
-                        {/* Countdown */}
-                        <div className="w-full sm:w-auto bg-[#eef2f6] shadow-3d-inset rounded-xl p-3 text-center flex-1">
-                            <CountdownTimer targetDate={tx.targetDate} status={tx.status} />
+                            {/* Middle: Timer */}
+                            <div className="p-4 flex items-center justify-between gap-4">
+                                <div className="w-full bg-[#eef2f6] shadow-3d-inset rounded-xl p-3 text-center flex-1">
+                                    <CountdownTimer targetDate={tx.targetDate} status={tx.status} />
+                                </div>
+                            </div>
+
+                        </div>
+                        </CardContent>
+                    </Card>
+                </DialogTrigger>
+                
+                {/* Transaction Details & Actions Modal */}
+                <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
+                    <DialogHeader>
+                        <DialogTitle className="text-center font-bold text-gray-800">تفاصيل المعاملة #{tx.serialNo}</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div className="bg-white/50 p-3 rounded-xl"><span className="text-gray-500 block text-xs">النوع</span><span className="font-bold">{tx.type}</span></div>
+                            <div className="bg-white/50 p-3 rounded-xl"><span className="text-gray-500 block text-xs">العميل</span><span className="font-bold">{tx.clientName || '-'}</span></div>
+                            <div className="bg-white/50 p-3 rounded-xl"><span className="text-gray-500 block text-xs">السعر</span><span className="font-bold text-blue-600">{tx.clientPrice} ر.س</span></div>
+                            <div className="bg-white/50 p-3 rounded-xl"><span className="text-gray-500 block text-xs">المعقب</span><span className="font-bold">{tx.agent}</span></div>
                         </div>
 
-                        {/* Actions */}
+                        {/* Action Buttons */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <button onClick={() => handlePrint(tx)} className="flex items-center justify-center gap-2 py-3 bg-gray-200 rounded-xl font-bold text-gray-700 hover:bg-gray-300">
+                                <Printer className="w-4 h-4" /> طباعة
+                            </button>
+                            <button onClick={() => handleWhatsApp(tx)} className="flex items-center justify-center gap-2 py-3 bg-green-100 text-green-700 rounded-xl font-bold hover:bg-green-200">
+                                <Send className="w-4 h-4" /> واتساب
+                            </button>
+                        </div>
+
                         {tx.status === 'active' && (
-                            <div className="flex gap-3 w-full sm:w-auto">
+                            <div className="flex gap-3 pt-2 border-t border-gray-200">
                                 <button 
-                                onClick={() => updateStatus(tx.id, 'completed')}
-                                className="flex-1 sm:flex-none px-4 py-2 bg-green-100 text-green-700 rounded-lg font-bold hover:bg-green-200 transition-colors text-sm flex items-center justify-center gap-1"
+                                onClick={() => { updateStatus(tx.id, 'completed'); }}
+                                className="flex-1 py-3 bg-green-600 text-white rounded-xl font-bold shadow-lg hover:bg-green-700"
                                 >
-                                <CheckCircle className="w-4 h-4" />
                                 إنجاز
                                 </button>
                                 <button 
-                                onClick={() => updateStatus(tx.id, 'cancelled')}
-                                className="flex-1 sm:flex-none px-4 py-2 bg-red-100 text-red-700 rounded-lg font-bold hover:bg-red-200 transition-colors text-sm flex items-center justify-center gap-1"
+                                onClick={() => { updateStatus(tx.id, 'cancelled'); }}
+                                className="flex-1 py-3 bg-red-100 text-red-600 rounded-xl font-bold hover:bg-red-200"
                                 >
-                                <XCircle className="w-4 h-4" />
                                 إلغاء
                                 </button>
                             </div>
                         )}
                     </div>
-
-                  </div>
-                </CardContent>
-              </Card>
+                </DialogContent>
+              </Dialog>
             ))}
           </div>
         )}

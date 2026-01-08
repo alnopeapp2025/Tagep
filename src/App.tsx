@@ -7,6 +7,7 @@ import ClientsPage from './pages/ClientsPage';
 import AgentsPage from './pages/AgentsPage';
 import ExpensesPage from './pages/ExpensesPage';
 import CalculatorPage from './pages/CalculatorPage';
+import LoginPage from './pages/LoginPage';
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
       <div className="min-h-screen bg-[#eef2f6] p-4 sm:p-8" dir="rtl">
         <Routes>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/login" element={<LoginPage />} />
           <Route path="/transactions" element={<TransactionsPage />} />
           <Route path="/accounts" element={<AccountsPage />} />
           <Route path="/reports" element={<ReportsPage />} />

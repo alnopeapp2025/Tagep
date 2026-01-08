@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Users, Plus, Search, FileText } from 'lucide-react';
+import { ArrowRight, Users, Plus, Search, FileText, Phone, MessageCircle } from 'lucide-react';
 import { getStoredClients, saveStoredClients, Client, getStoredTransactions, Transaction } from '@/lib/store';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -10,6 +10,8 @@ export default function ClientsPage() {
   const navigate = useNavigate();
   const [clients, setClients] = useState<Client[]>([]);
   const [newClientName, setNewClientName] = useState('');
+  const [newClientPhone, setNewClientPhone] = useState('');
+  const [newClientWhatsapp, setNewClientWhatsapp] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [clientTxs, setClientTxs] = useState<Transaction[]>([]);
@@ -24,24 +26,24 @@ export default function ClientsPage() {
     const newClient: Client = {
       id: Date.now(),
       name: newClientName,
+      phone: newClientPhone,
+      whatsapp: newClientWhatsapp,
       createdAt: Date.now()
     };
     const updated = [newClient, ...clients];
     setClients(updated);
     saveStoredClients(updated);
     setNewClientName('');
+    setNewClientPhone('');
+    setNewClientWhatsapp('');
     setOpen(false);
   };
 
   const handleClientClick = (client: Client) => {
-    // In a real app, we would link transactions to client ID. 
-    // Here we simulate by filtering transactions that might match the client name (or just showing all for demo if no link exists)
-    // Since the current Transaction model doesn't strictly have 'clientId', we will show a placeholder or filter by name if added to transaction form.
-    // For this update, I'll fetch all transactions and pretend we are filtering.
     const allTxs = getStoredTransactions();
-    // Filter logic: Assuming transaction 'type' or a future 'clientName' field matches. 
-    // For now, let's just show recent transactions as "Client History"
-    setClientTxs(allTxs.slice(0, 5)); 
+    // Filter by client name (simple simulation)
+    const filtered = allTxs.filter(t => t.clientName === client.name);
+    setClientTxs(filtered); 
     setSelectedClient(client);
   };
 
@@ -87,6 +89,28 @@ export default function ClientsPage() {
                             className="bg-white shadow-3d-inset border-none"
                         />
                     </div>
+                    <div className="space-y-2">
+                        <Label>رقم الجوال</Label>
+                        <div className="relative">
+                            <Input 
+                                value={newClientPhone} 
+                                onChange={(e) => setNewClientPhone(e.target.value)} 
+                                className="bg-white shadow-3d-inset border-none pl-10"
+                            />
+                            <Phone className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>رقم الواتساب</Label>
+                        <div className="relative">
+                            <Input 
+                                value={newClientWhatsapp} 
+                                onChange={(e) => setNewClientWhatsapp(e.target.value)} 
+                                className="bg-white shadow-3d-inset border-none pl-10"
+                            />
+                            <MessageCircle className="absolute left-3 top-3 w-4 h-4 text-green-500" />
+                        </div>
+                    </div>
                     <button onClick={handleAddClient} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg">حفظ</button>
                 </div>
             </DialogContent>
@@ -103,12 +127,16 @@ export default function ClientsPage() {
                 <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 shadow-sm">
                     <Users className="w-6 h-6" />
                 </div>
-                <h3 className="font-bold text-gray-700 text-lg">{client.name}</h3>
+                <div>
+                    <h3 className="font-bold text-gray-700 text-lg">{client.name}</h3>
+                    <div className="flex gap-2 text-xs text-gray-400 mt-1">
+                        {client.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3"/> {client.phone}</span>}
+                    </div>
+                </div>
             </div>
         ))}
       </div>
 
-      {/* Client Details Dialog */}
       <Dialog open={!!selectedClient} onOpenChange={(open) => !open && setSelectedClient(null)}>
         <DialogContent className="bg-[#eef2f6] shadow-3d border-none max-w-2xl" dir="rtl">
             <DialogHeader>

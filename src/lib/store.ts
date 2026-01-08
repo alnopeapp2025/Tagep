@@ -15,14 +15,16 @@ export const INITIAL_BALANCES: Record<string, number> = BANKS_LIST.reduce((acc, 
 export interface Client {
   id: number;
   name: string;
-  phone?: string;
+  phone?: string;     // Mobile Number
+  whatsapp?: string;  // WhatsApp Number
   createdAt: number;
 }
 
 export interface Agent {
   id: number;
   name: string;
-  phone?: string;
+  phone?: string;     // Mobile Number
+  whatsapp?: string;  // WhatsApp Number
   createdAt: number;
 }
 
