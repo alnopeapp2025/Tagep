@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, BarChart3, Calendar, CheckCircle, XCircle, DollarSign, Users } from 'lucide-react';
+import { ArrowRight, Calendar, CheckCircle, XCircle, DollarSign, Users } from 'lucide-react';
 import { getStoredTransactions, Transaction } from '@/lib/store';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function ReportsPage() {
   const navigate = useNavigate();
@@ -78,6 +77,7 @@ export default function ReportsPage() {
     });
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const StatCard = ({ title, value, icon: Icon, colorClass, subText }: any) => (
     <div className="bg-[#eef2f6] rounded-2xl shadow-3d p-5 flex items-center gap-4 border border-white/50">
       <div className={`w-12 h-12 rounded-xl shadow-3d-inset flex items-center justify-center ${colorClass}`}>

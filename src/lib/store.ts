@@ -1,5 +1,8 @@
 import { Transaction } from '@/pages/TransactionsPage';
 
+// Re-export Transaction so other files can import it from store
+export type { Transaction };
+
 // --- Constants ---
 export const BANKS_LIST = [
   "الراجحي", "الأهلي", "الإنماء", "البلاد", "بنك stc", 
