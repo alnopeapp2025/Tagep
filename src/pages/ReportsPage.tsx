@@ -78,14 +78,14 @@ export default function ReportsPage() {
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const StatCard = ({ title, value, icon: Icon, colorClass, subText }: any) => (
+  const StatCard = ({ title, value, icon: Icon, colorClass, valueColorClass, subText }: any) => (
     <div className="bg-[#eef2f6] rounded-2xl shadow-3d p-5 flex items-center gap-4 border border-white/50">
       <div className={`w-12 h-12 rounded-xl shadow-3d-inset flex items-center justify-center ${colorClass}`}>
         <Icon className="w-6 h-6" />
       </div>
       <div>
         <p className="text-gray-500 text-xs font-bold mb-1">{title}</p>
-        <h3 className="text-xl font-black text-gray-800">{value}</h3>
+        <h3 className={`text-xl font-black ${valueColorClass || 'text-gray-800'}`}>{value}</h3>
         {subText && <p className="text-[10px] text-gray-400">{subText}</p>}
       </div>
     </div>
@@ -130,6 +130,7 @@ export default function ReportsPage() {
             value={`${stats.monthProfit.toLocaleString()} ر.س`} 
             icon={DollarSign} 
             colorClass="text-green-600" 
+            valueColorClass="text-blue-600"
         />
       </div>
 

@@ -32,7 +32,23 @@ export interface Expense {
   id: number;
   title: string;
   amount: number;
+  bank: string; // Added bank field
   date: number;
+}
+
+// New Types for Achievers Hub
+export interface ExternalAgent {
+  id: number;
+  name: string;
+  phone: string;
+  createdAt: number;
+}
+
+export interface Lesson {
+  id: number;
+  title: string;
+  content: string;
+  createdAt: number;
 }
 
 export interface AppData {
@@ -46,6 +62,8 @@ const BAL_KEY = 'moaqeb_balances_v1';
 const CLIENTS_KEY = 'moaqeb_clients_v1';
 const AGENTS_KEY = 'moaqeb_agents_v1';
 const EXPENSES_KEY = 'moaqeb_expenses_v1';
+const EXT_AGENTS_KEY = 'moaqeb_ext_agents_v1';
+const LESSONS_KEY = 'moaqeb_lessons_v1';
 
 // Transactions
 export const getStoredTransactions = (): Transaction[] => {
@@ -117,6 +135,34 @@ export const saveStoredExpenses = (expenses: Expense[]) => {
   localStorage.setItem(EXPENSES_KEY, JSON.stringify(expenses));
 };
 
+// External Agents (Achievers Hub)
+export const getStoredExtAgents = (): ExternalAgent[] => {
+  try {
+    const stored = localStorage.getItem(EXT_AGENTS_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const saveStoredExtAgents = (agents: ExternalAgent[]) => {
+  localStorage.setItem(EXT_AGENTS_KEY, JSON.stringify(agents));
+};
+
+// Lessons (Achievers Hub)
+export const getStoredLessons = (): Lesson[] => {
+  try {
+    const stored = localStorage.getItem(LESSONS_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const saveStoredLessons = (lessons: Lesson[]) => {
+  localStorage.setItem(LESSONS_KEY, JSON.stringify(lessons));
+};
+
 // --- Logic Helpers ---
 export const calculateAchievers = (transactions: Transaction[]) => {
   const achievers: Record<string, { count: number; total: number }> = {};
@@ -143,6 +189,8 @@ export const createBackup = () => {
     clients: getStoredClients(),
     agents: getStoredAgents(),
     expenses: getStoredExpenses(),
+    extAgents: getStoredExtAgents(),
+    lessons: getStoredLessons(),
     timestamp: Date.now()
   };
   return JSON.stringify(data);
@@ -156,6 +204,8 @@ export const restoreBackup = (jsonData: string) => {
     if (data.clients) saveStoredClients(data.clients);
     if (data.agents) saveStoredAgents(data.agents);
     if (data.expenses) saveStoredExpenses(data.expenses);
+    if (data.extAgents) saveStoredExtAgents(data.extAgents);
+    if (data.lessons) saveStoredLessons(data.lessons);
     return true;
   } catch (e) {
     console.error("Restore failed", e);

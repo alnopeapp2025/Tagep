@@ -9,6 +9,7 @@ import ExpensesPage from './pages/ExpensesPage';
 import CalculatorPage from './pages/CalculatorPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import AchieversHub from './pages/AchieversHub';
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
           <Route path="/agents" element={<AgentsPage />} />
           <Route path="/expenses" element={<ExpensesPage />} />
           <Route path="/calculator" element={<CalculatorPage />} />
+          <Route path="/achievers" element={<AchieversHub />} />
         </Routes>
       </div>
     </Router>

@@ -119,6 +119,7 @@ export default function TransactionsPage() {
   const clientPriceRef = useRef<HTMLInputElement>(null);
   const durationRef = useRef<HTMLInputElement>(null);
   const clientSelectRef = useRef<HTMLButtonElement>(null);
+  const agentSelectRef = useRef<HTMLButtonElement>(null);
 
   // Load Initial Data
   useEffect(() => {
@@ -144,16 +145,41 @@ export default function TransactionsPage() {
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
+    let firstErrorField = null;
     
-    if (inputTypeMode === 'manual' && !formData.manualType) newErrors.type = "يرجى كتابة نوع المعاملة";
-    if (inputTypeMode === 'select' && !formData.selectedType) newErrors.type = "يرجى اختيار نوع المعاملة";
-    if (!formData.agentPrice) newErrors.agentPrice = "مطلوب";
-    if (!formData.clientPrice) newErrors.clientPrice = "مطلوب";
-    if (!formData.agent) newErrors.agent = "يرجى اختيار المعقب";
-    if (!formData.duration) newErrors.duration = "مطلوب";
-    if (!formData.paymentMethod) newErrors.paymentMethod = "يرجى اختيار طريقة الدفع";
+    if (inputTypeMode === 'manual' && !formData.manualType) {
+        newErrors.type = "يرجى كتابة نوع المعاملة";
+        if(!firstErrorField) firstErrorField = manualTypeRef;
+    }
+    if (inputTypeMode === 'select' && !formData.selectedType) {
+        newErrors.type = "يرجى اختيار نوع المعاملة";
+    }
+    if (!formData.agentPrice) {
+        newErrors.agentPrice = "مطلوب";
+        if(!firstErrorField) firstErrorField = agentPriceRef;
+    }
+    if (!formData.clientPrice) {
+        newErrors.clientPrice = "مطلوب";
+        if(!firstErrorField) firstErrorField = clientPriceRef;
+    }
+    if (!formData.agent) {
+        newErrors.agent = "يرجى اختيار المعقب";
+    }
+    if (!formData.duration) {
+        newErrors.duration = "مطلوب";
+        if(!firstErrorField) firstErrorField = durationRef;
+    }
+    if (!formData.paymentMethod) {
+        newErrors.paymentMethod = "يرجى اختيار طريقة الدفع";
+    }
 
     setErrors(newErrors);
+
+    // Focus on first error
+    if (firstErrorField && firstErrorField.current) {
+        firstErrorField.current.focus();
+    }
+
     return Object.keys(newErrors).length === 0;
   };
 
@@ -431,7 +457,7 @@ export default function TransactionsPage() {
                                 if(errors.agent) setErrors({...errors, agent: ''});
                             }}
                         >
-                        <SelectTrigger className={cn(
+                        <SelectTrigger ref={agentSelectRef} className={cn(
                             "h-10 rounded-xl bg-[#eef2f6] shadow-3d-inset text-right flex-row-reverse text-sm",
                             errors.agent ? "border border-red-400" : "border-none"
                         )}>

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { 
   FileText, Wallet, BarChart3, Users, UserCheck, Settings, Bell, LogOut, 
   Trophy, Menu, Award, LogIn, Receipt, Calculator, Activity, Clock, CheckCircle2,
-  Search, Database, Trash2, Shield, AlertTriangle, Download, Upload
+  Search, Database, Trash2, Shield, AlertTriangle, Download, Upload, Crown, Mail, Phone
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardButton } from '@/components/DashboardButton';
@@ -52,6 +52,15 @@ export default function Dashboard() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteAllConfirm, setDeleteAllConfirm] = useState(false);
 
+  // Pro State
+  const [proOpen, setProOpen] = useState(false);
+
+  // Delete My Data State
+  const [deleteMyDataOpen, setDeleteMyDataOpen] = useState(false);
+  
+  // Privacy Policy State
+  const [privacyOpen, setPrivacyOpen] = useState(false);
+
   useEffect(() => {
     const txs = getStoredTransactions();
     setTransactions(txs);
@@ -74,13 +83,6 @@ export default function Dashboard() {
 
     return () => clearInterval(interval);
   }, []);
-
-  const scrollToAchievers = () => {
-    const element = document.getElementById('achievers-section');
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
 
   const handleInquiry = () => {
     const tx = transactions.find(t => t.serialNo === inquiryId);
@@ -222,6 +224,53 @@ export default function Dashboard() {
                     </DialogContent>
                   </Dialog>
 
+                  {/* Pro Subscription Button */}
+                  <Dialog open={proOpen} onOpenChange={setProOpen}>
+                    <DialogTrigger asChild>
+                        <button className="relative flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-yellow-200 to-yellow-400 shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-yellow-900 font-black animate-pulse overflow-hidden">
+                            <Crown className="w-5 h-5" />
+                            اشتراك ذهبي Pro
+                            <div className="absolute inset-0 bg-white/20 animate-[shimmer_2s_infinite]"></div>
+                        </button>
+                    </DialogTrigger>
+                    <DialogContent className="bg-gradient-to-br from-yellow-400 to-yellow-600 border-none shadow-3d rounded-3xl text-white max-w-md" dir="rtl">
+                        <DialogHeader>
+                            <DialogTitle className="text-3xl font-black text-center mb-2 flex items-center justify-center gap-2">
+                                <Crown className="w-8 h-8" />
+                                العضوية الذهبية
+                            </DialogTitle>
+                        </DialogHeader>
+                        <div className="py-6 space-y-6">
+                            <div className="bg-white/20 backdrop-blur-sm p-4 rounded-2xl border border-white/30 text-center">
+                                <h3 className="text-xl font-bold mb-2">الباقة الشهرية</h3>
+                                <p className="text-4xl font-black">59 <span className="text-lg">ريال</span></p>
+                            </div>
+                            <div className="bg-white/20 backdrop-blur-sm p-4 rounded-2xl border border-white/30 text-center relative overflow-hidden">
+                                <div className="absolute top-0 right-0 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-bl-xl">الأكثر طلباً</div>
+                                <h3 className="text-xl font-bold mb-2">الباقة السنوية</h3>
+                                <p className="text-4xl font-black">299 <span className="text-lg">ريال فقط</span></p>
+                                <ul className="text-right mt-4 space-y-2 text-sm font-medium">
+                                    <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> معاملات لا محدودة</li>
+                                    <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> تقارير متكاملة</li>
+                                    <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> عملاء ومعقبين بلا حدود</li>
+                                    <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> أرقام أفضل المعقبين</li>
+                                    <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> دروس تعليمية للخدمات</li>
+                                </ul>
+                            </div>
+                            
+                            <div className="space-y-3">
+                                <button className="w-full py-4 bg-white text-yellow-700 rounded-xl font-black shadow-lg hover:bg-gray-100 transition-all">
+                                    اشترك الآن
+                                </button>
+                                <Input 
+                                    className="bg-white/20 border-white/30 placeholder:text-white/70 text-white text-center"
+                                    placeholder="ادخل كود التفعيل"
+                                />
+                            </div>
+                        </div>
+                    </DialogContent>
+                  </Dialog>
+
                   <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
                     <DialogTrigger asChild>
                       <button className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
@@ -256,15 +305,52 @@ export default function Dashboard() {
                     </DialogContent>
                   </Dialog>
 
-                  <button className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
-                    <Shield className="w-5 h-5 text-green-600" />
-                    سياسة الخصوصية
-                  </button>
+                  <Dialog open={privacyOpen} onOpenChange={setPrivacyOpen}>
+                    <DialogTrigger asChild>
+                        <button className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
+                            <Shield className="w-5 h-5 text-green-600" />
+                            سياسة الخصوصية
+                        </button>
+                    </DialogTrigger>
+                    <DialogContent className="bg-[#eef2f6] border-none shadow-3d max-w-lg max-h-[80vh] overflow-y-auto" dir="rtl">
+                        <DialogHeader><DialogTitle>سياسة الخصوصية</DialogTitle></DialogHeader>
+                        <div className="text-gray-600 leading-relaxed py-4 space-y-4 text-sm">
+                            <p>نحن في نظام المعقب المحاسبي نولي اهتماماً كبيراً لخصوصية بياناتك. توضح هذه السياسة كيفية تعاملنا مع البيانات.</p>
+                            <h4 className="font-bold text-gray-800">1. جمع البيانات</h4>
+                            <p>يتم تخزين جميع البيانات (المعاملات، العملاء، الحسابات) محلياً على جهازك (Local Storage). نحن لا نقوم برفع أي بيانات لسيرفرات خارجية.</p>
+                            <h4 className="font-bold text-gray-800">2. استخدام البيانات</h4>
+                            <p>تستخدم البيانات فقط لغرض إدارة حساباتك وعرض التقارير داخل التطبيق.</p>
+                            <h4 className="font-bold text-gray-800">3. أمان البيانات</h4>
+                            <p>أنت المسؤول عن حماية جهازك. نوصي بعمل نسخ احتياطية دورية باستخدام ميزة النسخ الاحتياطي في التطبيق.</p>
+                        </div>
+                    </DialogContent>
+                  </Dialog>
 
-                  <button onClick={() => { if(confirm('سيتم حذف بياناتك الشخصية من المتصفح.')) { clearAllData(); window.location.reload(); }}} className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
-                    <UserCheck className="w-5 h-5 text-gray-600" />
-                    حذف بياناتي
-                  </button>
+                  <Dialog open={deleteMyDataOpen} onOpenChange={setDeleteMyDataOpen}>
+                    <DialogTrigger asChild>
+                        <button className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
+                            <UserCheck className="w-5 h-5 text-gray-600" />
+                            حذف بياناتي
+                        </button>
+                    </DialogTrigger>
+                    <DialogContent className="bg-[#eef2f6] border-none shadow-3d text-center" dir="rtl">
+                        <DialogHeader><DialogTitle className="text-center text-red-600">حذف الحساب والبيانات</DialogTitle></DialogHeader>
+                        <div className="py-6 flex flex-col items-center">
+                            <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4 text-3xl">😢</div>
+                            <p className="font-bold text-gray-700 mb-2">يؤسفنا أنك تغادر ونأمل في عودتك قريباً..</p>
+                            <p className="text-sm text-gray-500 mb-6">لإرسال طلب حذف البيانات نهائياً، يرجى التواصل معنا:</p>
+                            <div className="bg-white p-3 rounded-xl shadow-3d-inset font-mono text-blue-600 select-all">
+                                Tageep2026@gmail.com
+                            </div>
+                        </div>
+                    </DialogContent>
+                  </Dialog>
+
+                  <a href="mailto:Tageep2026@gmail.com" className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
+                    <Mail className="w-5 h-5 text-blue-500" />
+                    اتصل بنا
+                  </a>
+
                 </div>
 
                 <div className="absolute bottom-8 left-0 w-full px-6">
@@ -324,7 +410,7 @@ export default function Dashboard() {
             icon={Award} 
             label="المنجزين" 
             variant="primary"
-            onClick={scrollToAchievers}
+            onClick={() => navigate('/achievers')}
           />
 
           {/* المنصرفات */}

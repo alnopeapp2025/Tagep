@@ -1,47 +1,50 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Receipt, Plus } from 'lucide-react';
-import { getStoredExpenses, saveStoredExpenses, Expense, getStoredBalances, saveStoredBalances } from '@/lib/store';
+import { ArrowRight, Receipt, Plus, Wallet } from 'lucide-react';
+import { getStoredExpenses, saveStoredExpenses, Expense, getStoredBalances, saveStoredBalances, BANKS_LIST } from '@/lib/store';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function ExpensesPage() {
   const navigate = useNavigate();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
+  const [selectedBank, setSelectedBank] = useState('');
   const [open, setOpen] = useState(false);
+  const [balances, setBalances] = useState<Record<string, number>>({});
 
   useEffect(() => {
     setExpenses(getStoredExpenses());
-  }, []);
+    setBalances(getStoredBalances());
+  }, [open]); // Refresh balances when dialog opens
 
   const handleAddExpense = () => {
-    if (!title || !amount) return;
+    if (!title || !amount || !selectedBank) return;
     const cost = parseFloat(amount);
     if (cost <= 0) return;
 
-    // Deduct from Treasury (Cash) - Assuming 'نقداً كاش' is the main treasury for expenses
-    // Or we could add a selector. For simplicity, let's use Cash.
-    const balances = getStoredBalances();
-    const cashKey = "نقداً كاش";
-    const currentCash = balances[cashKey] || 0;
+    const currentBalance = balances[selectedBank] || 0;
 
-    if (currentCash < cost) {
-        alert("رصيد الكاش غير كافي لتغطية المصروف");
+    if (currentBalance < cost) {
+        alert("رصيد الحساب المختار غير كافي لتغطية المصروف");
         return;
     }
 
     // Update Balance
-    balances[cashKey] = currentCash - cost;
-    saveStoredBalances(balances);
+    const newBalances = { ...balances };
+    newBalances[selectedBank] = currentBalance - cost;
+    saveStoredBalances(newBalances);
+    setBalances(newBalances);
 
     // Save Expense
     const newExp: Expense = {
       id: Date.now(),
       title,
       amount: cost,
+      bank: selectedBank,
       date: Date.now()
     };
     const updated = [newExp, ...expenses];
@@ -50,6 +53,7 @@ export default function ExpensesPage() {
     
     setTitle('');
     setAmount('');
+    setSelectedBank('');
     setOpen(false);
   };
 
@@ -86,6 +90,26 @@ export default function ExpensesPage() {
                         />
                     </div>
                     <div className="space-y-2">
+                        <Label>خصم من حساب</Label>
+                        <Select onValueChange={setSelectedBank} value={selectedBank}>
+                            <SelectTrigger className="bg-white shadow-3d-inset border-none h-12 text-right flex-row-reverse">
+                                <SelectValue placeholder="اختر البنك للخصم" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">
+                                {BANKS_LIST.map((bank) => (
+                                    <SelectItem key={bank} value={bank} className="text-right cursor-pointer my-1">
+                                        <div className="flex justify-between w-full gap-4">
+                                            <span>{bank}</span>
+                                            <span className={`font-bold ${(balances[bank] || 0) > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                                {(balances[bank] || 0).toLocaleString()} ر.س
+                                            </span>
+                                        </div>
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
                         <Label>المبلغ</Label>
                         <Input 
                             type="number"
@@ -94,7 +118,7 @@ export default function ExpensesPage() {
                             className="bg-white shadow-3d-inset border-none"
                         />
                     </div>
-                    <button onClick={handleAddExpense} className="w-full py-3 bg-red-600 text-white rounded-xl font-bold shadow-lg">خصم من الخزينة</button>
+                    <button onClick={handleAddExpense} className="w-full py-3 bg-red-600 text-white rounded-xl font-bold shadow-lg">خصم وتسجيل</button>
                 </div>
             </DialogContent>
         </Dialog>
@@ -109,7 +133,11 @@ export default function ExpensesPage() {
                     </div>
                     <div>
                         <h3 className="font-bold text-gray-700">{exp.title}</h3>
-                        <p className="text-xs text-gray-400">{new Date(exp.date).toLocaleDateString('ar-SA')}</p>
+                        <div className="flex gap-2 text-xs text-gray-400 mt-1">
+                            <span>{new Date(exp.date).toLocaleDateString('ar-SA')}</span>
+                            <span>•</span>
+                            <span className="flex items-center gap-1"><Wallet className="w-3 h-3"/> {exp.bank || 'غير محدد'}</span>
+                        </div>
                     </div>
                 </div>
                 <span className="font-bold text-red-600 text-lg">-{exp.amount.toLocaleString()} ر.س</span>
