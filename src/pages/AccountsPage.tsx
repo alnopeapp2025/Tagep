@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Wallet, Trash2, Landmark, ArrowLeftRight, Check, AlertCircle } from 'lucide-react';
-import { BANKS_LIST, getStoredBalances, saveStoredBalances } from '@/lib/store';
+import { BANKS_LIST, getStoredBalances, saveStoredBalances, getStoredPendingBalances, saveStoredPendingBalances } from '@/lib/store';
 import {
   Dialog,
   DialogContent,
@@ -22,7 +22,9 @@ import { Label } from '@/components/ui/label';
 export default function AccountsPage() {
   const navigate = useNavigate();
   const [balances, setBalances] = useState<Record<string, number>>({});
+  const [pendingBalances, setPendingBalances] = useState<Record<string, number>>({});
   const [totalTreasury, setTotalTreasury] = useState(0);
+  const [totalPending, setTotalPending] = useState(0);
 
   // Dialog States
   const [transferOpen, setTransferOpen] = useState(false);
@@ -44,6 +46,11 @@ export default function AccountsPage() {
     setBalances(data);
     const total = Object.values(data).reduce((sum, val) => sum + val, 0);
     setTotalTreasury(total);
+
+    const pending = getStoredPendingBalances();
+    setPendingBalances(pending);
+    const pTotal = Object.values(pending).reduce((sum, val) => sum + val, 0);
+    setTotalPending(pTotal);
   };
 
   const handleTransfer = () => {
@@ -89,6 +96,7 @@ export default function AccountsPage() {
     if (confirm("تحذير هام: سيتم حذف جميع الأرصدة وتصفير الخزينة نهائياً. هل أنت متأكد؟")) {
         const zeroed = BANKS_LIST.reduce((acc, bank) => ({ ...acc, [bank]: 0 }), {});
         saveStoredBalances(zeroed);
+        saveStoredPendingBalances(zeroed); // Also clear pending
         loadData();
         setZeroOpen(false);
     }
@@ -117,12 +125,28 @@ export default function AccountsPage() {
       </header>
 
       <div className="mb-10">
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 to-blue-800 text-white shadow-3d p-8 flex flex-col items-center justify-center text-center min-h-[200px]">
-           <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
-           <Wallet className="w-16 h-16 mb-4 opacity-80" />
-           <h2 className="text-2xl font-medium opacity-90 mb-2">جملة الخزينة</h2>
-           <div className="text-5xl sm:text-6xl font-black tracking-tight">
-             {totalTreasury.toLocaleString()} <span className="text-2xl font-medium">ر.س</span>
+        <div className="relative overflow-hidden rounded-3xl shadow-3d flex flex-col min-h-[250px]">
+           {/* Top 33% - Pending Treasury (Faded) */}
+           <div className="h-[33%] bg-blue-100/50 backdrop-blur-sm flex items-center justify-center relative border-b border-blue-200/50">
+                <div className="text-center opacity-70">
+                    <h3 className="text-sm font-bold text-blue-800 mb-1 flex items-center justify-center gap-2">
+                        <Wallet className="w-4 h-4" />
+                        خزنة غير مستحقة بعد
+                    </h3>
+                    <p className="text-2xl font-black text-blue-900">
+                        {totalPending.toLocaleString()} <span className="text-sm">ر.س</span>
+                    </p>
+                </div>
+           </div>
+
+           {/* Bottom 66% - Actual Treasury */}
+           <div className="h-[67%] bg-gradient-to-br from-blue-600 to-blue-800 text-white flex flex-col items-center justify-center text-center relative">
+                <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+                <Wallet className="w-12 h-12 mb-2 opacity-80" />
+                <h2 className="text-xl font-medium opacity-90 mb-1">جملة الخزينة الفعلية</h2>
+                <div className="text-5xl sm:text-6xl font-black tracking-tight">
+                    {totalTreasury.toLocaleString()} <span className="text-2xl font-medium">ر.س</span>
+                </div>
            </div>
         </div>
       </div>
@@ -159,6 +183,12 @@ export default function AccountsPage() {
             <span className="text-lg font-black text-blue-800">
               {(balances[bank] || 0).toLocaleString()} <span className="text-xs text-gray-400">ر.س</span>
             </span>
+            {/* Show pending for this bank if exists */}
+            {(pendingBalances[bank] || 0) > 0 && (
+                <span className="text-[10px] font-bold text-orange-500 mt-1 bg-orange-50 px-2 py-0.5 rounded-full">
+                    معلق: {(pendingBalances[bank] || 0).toLocaleString()}
+                </span>
+            )}
           </div>
         ))}
       </div>

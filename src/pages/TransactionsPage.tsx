@@ -21,7 +21,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent } from '@/components/ui/card';
-import { getStoredTransactions, saveStoredTransactions, getStoredBalances, saveStoredBalances, BANKS_LIST, getStoredClients, saveStoredClients, Client, getStoredAgents, saveStoredAgents, Agent } from '@/lib/store';
+import { 
+  getStoredTransactions, saveStoredTransactions, 
+  getStoredBalances, saveStoredBalances, 
+  getStoredPendingBalances, saveStoredPendingBalances,
+  BANKS_LIST, getStoredClients, saveStoredClients, Client, getStoredAgents, saveStoredAgents, Agent 
+} from '@/lib/store';
 
 // --- Types ---
 export interface Transaction {
@@ -197,6 +202,7 @@ export default function TransactionsPage() {
 
     const finalType = inputTypeMode === 'manual' ? formData.manualType : formData.selectedType;
     const durationDays = parseInt(formData.duration) || 0;
+    const clientP = parseFloat(formData.clientPrice) || 0;
     
     const newTx: Transaction = {
       id: Date.now(),
@@ -214,6 +220,16 @@ export default function TransactionsPage() {
       agentPaid: false,
       clientRefunded: false
     };
+
+    // --- NEW LOGIC: Add to Pending Balances ---
+    const pendingBalances = getStoredPendingBalances();
+    if (pendingBalances[formData.paymentMethod] !== undefined) {
+        pendingBalances[formData.paymentMethod] += clientP;
+    } else {
+        pendingBalances[formData.paymentMethod] = clientP;
+    }
+    saveStoredPendingBalances(pendingBalances);
+    // ------------------------------------------
 
     const updatedTxs = [newTx, ...transactions];
     setTransactions(updatedTxs);
@@ -320,15 +336,35 @@ export default function TransactionsPage() {
     const tx = transactions.find(t => t.id === id);
     if (!tx) return;
 
+    const clientP = parseFloat(tx.clientPrice) || 0;
+    const pendingBalances = getStoredPendingBalances();
+    const currentBalances = getStoredBalances();
+
+    // Logic when completing a transaction
     if (newStatus === 'completed' && tx.status === 'active') {
-        const clientP = parseFloat(tx.clientPrice) || 0;
-        const currentBalances = getStoredBalances();
-        
-        if (currentBalances[tx.paymentMethod] !== undefined) {
-          currentBalances[tx.paymentMethod] += clientP;
-          saveStoredBalances(currentBalances);
-          updateBalancesDisplay();
+        // 1. Remove from Pending
+        if (pendingBalances[tx.paymentMethod] !== undefined) {
+            pendingBalances[tx.paymentMethod] = Math.max(0, pendingBalances[tx.paymentMethod] - clientP);
         }
+        // 2. Add to Actual Treasury
+        if (currentBalances[tx.paymentMethod] !== undefined) {
+            currentBalances[tx.paymentMethod] += clientP;
+        } else {
+            currentBalances[tx.paymentMethod] = clientP;
+        }
+        
+        saveStoredPendingBalances(pendingBalances);
+        saveStoredBalances(currentBalances);
+        updateBalancesDisplay();
+    }
+
+    // Logic when cancelling a transaction
+    if (newStatus === 'cancelled' && tx.status === 'active') {
+         // 1. Remove from Pending (Money goes back to client or disappears from system view)
+         if (pendingBalances[tx.paymentMethod] !== undefined) {
+            pendingBalances[tx.paymentMethod] = Math.max(0, pendingBalances[tx.paymentMethod] - clientP);
+        }
+        saveStoredPendingBalances(pendingBalances);
     }
 
     const updatedTxs = transactions.map(t => 

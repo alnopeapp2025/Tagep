@@ -79,6 +79,7 @@ export interface AppData {
 // --- Local Storage Helpers ---
 const TX_KEY = 'moaqeb_transactions_v1';
 const BAL_KEY = 'moaqeb_balances_v1';
+const PENDING_BAL_KEY = 'moaqeb_pending_balances_v1'; // NEW KEY
 const CLIENTS_KEY = 'moaqeb_clients_v1';
 const AGENTS_KEY = 'moaqeb_agents_v1';
 const EXPENSES_KEY = 'moaqeb_expenses_v1';
@@ -101,7 +102,7 @@ export const saveStoredTransactions = (txs: Transaction[]) => {
   localStorage.setItem(TX_KEY, JSON.stringify(txs));
 };
 
-// Balances
+// Balances (Actual Treasury)
 export const getStoredBalances = (): Record<string, number> => {
   try {
     const stored = localStorage.getItem(BAL_KEY);
@@ -113,6 +114,20 @@ export const getStoredBalances = (): Record<string, number> => {
 
 export const saveStoredBalances = (balances: Record<string, number>) => {
   localStorage.setItem(BAL_KEY, JSON.stringify(balances));
+};
+
+// Pending Balances (Unearned Treasury) - NEW
+export const getStoredPendingBalances = (): Record<string, number> => {
+  try {
+    const stored = localStorage.getItem(PENDING_BAL_KEY);
+    return stored ? JSON.parse(stored) : INITIAL_BALANCES;
+  } catch {
+    return INITIAL_BALANCES;
+  }
+};
+
+export const saveStoredPendingBalances = (balances: Record<string, number>) => {
+  localStorage.setItem(PENDING_BAL_KEY, JSON.stringify(balances));
 };
 
 // Clients
@@ -236,6 +251,7 @@ export const createBackup = () => {
   const data = {
     transactions: getStoredTransactions(),
     balances: getStoredBalances(),
+    pendingBalances: getStoredPendingBalances(), // Include Pending
     clients: getStoredClients(),
     agents: getStoredAgents(),
     expenses: getStoredExpenses(),
@@ -253,6 +269,7 @@ export const restoreBackup = (jsonData: string) => {
     const data = JSON.parse(jsonData);
     if (data.transactions) saveStoredTransactions(data.transactions);
     if (data.balances) saveStoredBalances(data.balances);
+    if (data.pendingBalances) saveStoredPendingBalances(data.pendingBalances);
     if (data.clients) saveStoredClients(data.clients);
     if (data.agents) saveStoredAgents(data.agents);
     if (data.expenses) saveStoredExpenses(data.expenses);
