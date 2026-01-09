@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { 
   FileText, Wallet, BarChart3, Users, UserCheck, Settings, Bell, LogOut, 
   Trophy, Menu, Award, LogIn, Receipt, Calculator, Activity, Clock, CheckCircle2,
-  Search, Database, Trash2, Shield, AlertTriangle, Download, Upload, Crown, Mail, Phone
+  Search, Database, Trash2, Shield, AlertTriangle, Download, Upload, Crown, Mail, Phone, Lock, UserPlus
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardButton } from '@/components/DashboardButton';
@@ -43,6 +43,7 @@ export default function Dashboard() {
   const [inquiryOpen, setInquiryOpen] = useState(false);
   const [inquiryId, setInquiryId] = useState('');
   const [foundTx, setFoundTx] = useState<Transaction | null>(null);
+  const [inquiryError, setInquiryError] = useState('');
 
   // Backup State
   const [backupOpen, setBackupOpen] = useState(false);
@@ -54,6 +55,11 @@ export default function Dashboard() {
 
   // Pro State
   const [proOpen, setProOpen] = useState(false);
+  const [activationPlaceholder, setActivationPlaceholder] = useState('12345');
+  const [requestCodeOpen, setRequestCodeOpen] = useState(false);
+
+  // Employee Login State
+  const [empLoginOpen, setEmpLoginOpen] = useState(false);
 
   // Delete My Data State
   const [deleteMyDataOpen, setDeleteMyDataOpen] = useState(false);
@@ -81,13 +87,35 @@ export default function Dashboard() {
       setTickerIndex(prev => (prev + 1) % 3);
     }, 4000);
 
-    return () => clearInterval(interval);
+    // Random Number Animation for Pro Activation
+    const randomInterval = setInterval(() => {
+        setActivationPlaceholder(Math.floor(10000 + Math.random() * 90000).toString());
+    }, 2000);
+
+    return () => {
+        clearInterval(interval);
+        clearInterval(randomInterval);
+    };
   }, []);
 
   const handleInquiry = () => {
+    setInquiryError('');
+    setFoundTx(null);
     const tx = transactions.find(t => t.serialNo === inquiryId);
-    setFoundTx(tx || null);
-    if (!tx) alert('لم يتم العثور على معاملة بهذا الرقم');
+    
+    if (!tx) {
+        setInquiryError('لم يتم العثور على معاملة بهذا الرقم، يرجى التحقق والمحاولة مرة أخرى.');
+    } else {
+        setFoundTx(tx);
+    }
+  };
+
+  const calculateTimeLeft = (targetDate: number) => {
+    const diff = targetDate - Date.now();
+    if (diff <= 0) return "منتهية";
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    return `${days} يوم و ${hours} ساعة`;
   };
 
   const handleCreateBackup = () => {
@@ -159,6 +187,34 @@ export default function Dashboard() {
                     <LogIn className="w-5 h-5 text-blue-600" />
                     تسجيل دخول
                   </button>
+
+                  {/* Employee Login Button */}
+                  <Dialog open={empLoginOpen} onOpenChange={setEmpLoginOpen}>
+                    <DialogTrigger asChild>
+                        <button className="relative flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
+                            <UserCheck className="w-5 h-5 text-gray-600" />
+                            دخول الموظفين
+                            <span className="absolute top-2 left-2 flex items-center gap-1 text-[10px] text-red-600 font-black animate-pulse">
+                                <span className="w-2 h-2 rounded-full bg-red-600"></span>
+                                جديد
+                            </span>
+                        </button>
+                    </DialogTrigger>
+                    <DialogContent className="bg-[#eef2f6] border-none shadow-3d" dir="rtl">
+                        <DialogHeader><DialogTitle>دخول الموظفين</DialogTitle></DialogHeader>
+                        <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                                <Label>اسم الموظف</Label>
+                                <Input className="bg-white shadow-3d-inset border-none" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>كلمة المرور</Label>
+                                <Input type="password" className="bg-white shadow-3d-inset border-none" />
+                            </div>
+                            <button onClick={() => { alert('تم تسجيل الدخول بنجاح'); setEmpLoginOpen(false); }} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg">دخول</button>
+                        </div>
+                    </DialogContent>
+                  </Dialog>
                   
                   <Dialog open={inquiryOpen} onOpenChange={setInquiryOpen}>
                     <DialogTrigger asChild>
@@ -179,12 +235,37 @@ export default function Dashboard() {
                           />
                           <button onClick={handleInquiry} className="bg-purple-600 text-white px-4 rounded-xl font-bold shadow-lg">بحث</button>
                         </div>
+                        
+                        {inquiryError && (
+                            <div className="bg-red-50 text-red-600 p-4 rounded-xl text-sm font-bold border border-red-100 shadow-sm animate-in fade-in">
+                                <AlertTriangle className="w-5 h-5 mx-auto mb-2" />
+                                <p className="text-center">{inquiryError}</p>
+                            </div>
+                        )}
+
                         {foundTx && (
-                          <div className="bg-white/50 p-4 rounded-xl border border-white space-y-2 animate-in fade-in">
-                            <p><span className="font-bold">النوع:</span> {foundTx.type}</p>
-                            <p><span className="font-bold">العميل:</span> {foundTx.clientName}</p>
-                            <p><span className="font-bold">السعر:</span> <span className="text-blue-600">{foundTx.clientPrice} ر.س</span></p>
-                            <p><span className="font-bold">الحالة:</span> {foundTx.status === 'active' ? 'نشطة' : foundTx.status === 'completed' ? 'مكتملة' : 'ملغاة'}</p>
+                          <div className="bg-white/50 p-4 rounded-xl border border-white space-y-3 animate-in fade-in">
+                            <p className="flex justify-between"><span className="font-bold text-gray-500">النوع:</span> <span>{foundTx.type}</span></p>
+                            <p className="flex justify-between"><span className="font-bold text-gray-500">العميل:</span> <span>{foundTx.clientName}</span></p>
+                            <p className="flex justify-between"><span className="font-bold text-gray-500">السعر:</span> <span className="text-blue-600 font-bold">{foundTx.clientPrice} ر.س</span></p>
+                            
+                            <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                                <span className="font-bold text-gray-500">الحالة:</span>
+                                {foundTx.status === 'completed' ? (
+                                    <span className="text-green-600 font-bold animate-pulse">تم الإنجاز</span>
+                                ) : foundTx.status === 'cancelled' ? (
+                                    <span className="text-red-600 font-bold animate-pulse">تم إلغاء المعاملة</span>
+                                ) : (
+                                    <span className="text-orange-500 font-bold animate-pulse">تحت الإنجاز</span>
+                                )}
+                            </div>
+                            
+                            {foundTx.status === 'active' && (
+                                <p className="flex justify-between text-xs text-gray-400 mt-2">
+                                    <span>الوقت المتبقي:</span> 
+                                    <span>{calculateTimeLeft(foundTx.targetDate)}</span>
+                                </p>
+                            )}
                           </div>
                         )}
                       </div>
@@ -235,12 +316,23 @@ export default function Dashboard() {
                     </DialogTrigger>
                     <DialogContent className="bg-gradient-to-br from-yellow-400 to-yellow-600 border-none shadow-3d rounded-3xl text-white max-w-md" dir="rtl">
                         <DialogHeader>
-                            <DialogTitle className="text-3xl font-black text-center mb-2 flex items-center justify-center gap-2">
+                            <DialogTitle className="text-3xl font-black text-center mb-1 flex items-center justify-center gap-2">
                                 <Crown className="w-8 h-8" />
                                 العضوية الذهبية
                             </DialogTitle>
+                            
+                            {/* Request Code Link */}
+                            <div className="text-center">
+                                <button 
+                                    onClick={() => setRequestCodeOpen(true)}
+                                    className="text-blue-600 font-bold underline text-sm animate-pulse hover:text-blue-800 transition-colors bg-white/80 px-3 py-1 rounded-full shadow-sm"
+                                >
+                                    طلب كود التفعيل
+                                </button>
+                            </div>
                         </DialogHeader>
-                        <div className="py-6 space-y-6">
+
+                        <div className="py-4 space-y-6">
                             <div className="bg-white/20 backdrop-blur-sm p-4 rounded-2xl border border-white/30 text-center">
                                 <h3 className="text-xl font-bold mb-2">الباقة الشهرية</h3>
                                 <p className="text-4xl font-black">59 <span className="text-lg">ريال</span></p>
@@ -255,6 +347,7 @@ export default function Dashboard() {
                                     <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> عملاء ومعقبين بلا حدود</li>
                                     <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> أرقام أفضل المعقبين</li>
                                     <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> دروس تعليمية للخدمات</li>
+                                    <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> حسابات الموظفين (2)</li>
                                 </ul>
                             </div>
                             
@@ -262,10 +355,45 @@ export default function Dashboard() {
                                 <button className="w-full py-4 bg-white text-yellow-700 rounded-xl font-black shadow-lg hover:bg-gray-100 transition-all">
                                     اشترك الآن
                                 </button>
-                                <Input 
-                                    className="bg-white/20 border-white/30 placeholder:text-white/70 text-white text-center"
-                                    placeholder="ادخل كود التفعيل"
-                                />
+                                <div className="relative group">
+                                    <Input 
+                                        className="bg-white/20 border-white/30 placeholder:text-white/70 text-white text-center cursor-none group-hover:cursor-text transition-all"
+                                        placeholder={activationPlaceholder}
+                                    />
+                                    <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <span className="text-xs text-white bg-black/50 px-2 py-1 rounded">أدخل الكود هنا</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </DialogContent>
+                  </Dialog>
+
+                  {/* Request Code Dialog */}
+                  <Dialog open={requestCodeOpen} onOpenChange={setRequestCodeOpen}>
+                    <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl text-center" dir="rtl">
+                        <DialogHeader><DialogTitle className="text-xl font-bold text-gray-800">للاشتراك يرجى التحويل</DialogTitle></DialogHeader>
+                        <div className="py-6 space-y-4">
+                            <div className="bg-white p-4 rounded-xl shadow-3d-inset border border-blue-100">
+                                <p className="font-bold text-blue-800 mb-1">بنك الراجحي</p>
+                                <p className="font-mono text-lg text-gray-600 select-all">حساب رقم 123456</p>
+                            </div>
+                            <div className="bg-white p-4 rounded-xl shadow-3d-inset border border-green-100">
+                                <p className="font-bold text-green-800 mb-1">بنك الأهلي</p>
+                                <p className="font-mono text-lg text-gray-600 select-all">حساب رقم 123456</p>
+                            </div>
+                            
+                            <div className="pt-4 border-t border-gray-200">
+                                <p className="text-sm text-gray-500 mb-3">مع إرسال إشعار التحويل للرقم:</p>
+                                <a 
+                                    href="https://wa.me/96650110000" 
+                                    target="_blank"
+                                    className="inline-flex items-center gap-2 px-6 py-3 bg-green-500 text-white rounded-xl font-bold shadow-lg hover:bg-green-600 transition-all"
+                                >
+                                    <Phone className="w-5 h-5" />
+                                    050110000 واتساب مباشر
+                                </a>
+                                <p className="text-xs text-gray-400 mt-2">وسيتم ارسال كود التفعيل لك مباشرة.</p>
                             </div>
                         </div>
                     </DialogContent>

@@ -80,6 +80,12 @@ export default function AgentsPage() {
     window.open(`https://wa.me/${number}`, '_blank');
   };
 
+  const handlePhoneClick = (e: React.MouseEvent, number?: string) => {
+    e.stopPropagation();
+    if (!number) return;
+    window.location.href = `tel:+${number}`;
+  };
+
   const filteredAgents = agents.filter(a => a.name.includes(searchTerm));
 
   return (
@@ -185,14 +191,24 @@ export default function AgentsPage() {
                         </div>
                     </div>
                 </div>
-                {agent.whatsapp && (
-                    <button 
-                        onClick={(e) => handleWhatsAppClick(e, agent.whatsapp)}
-                        className="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center shadow-3d hover:scale-110 transition-transform"
-                    >
-                        <MessageCircle className="w-5 h-5" />
-                    </button>
-                )}
+                <div className="flex gap-2">
+                    {agent.phone && (
+                        <button 
+                            onClick={(e) => handlePhoneClick(e, agent.phone)}
+                            className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shadow-3d hover:scale-110 transition-transform"
+                        >
+                            <Phone className="w-5 h-5" />
+                        </button>
+                    )}
+                    {agent.whatsapp && (
+                        <button 
+                            onClick={(e) => handleWhatsAppClick(e, agent.whatsapp)}
+                            className="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center shadow-3d hover:scale-110 transition-transform"
+                        >
+                            <MessageCircle className="w-5 h-5" />
+                        </button>
+                    )}
+                </div>
             </div>
         ))}
       </div>

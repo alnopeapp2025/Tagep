@@ -82,8 +82,13 @@ export default function ClientsPage() {
   const handleWhatsAppClick = (e: React.MouseEvent, number?: string) => {
     e.stopPropagation();
     if (!number) return;
-    // The number is already stored with 966 prefix
     window.open(`https://wa.me/${number}`, '_blank');
+  };
+
+  const handlePhoneClick = (e: React.MouseEvent, number?: string) => {
+    e.stopPropagation();
+    if (!number) return;
+    window.location.href = `tel:+${number}`;
   };
 
   const filteredClients = clients.filter(c => c.name.includes(searchTerm));
@@ -192,14 +197,24 @@ export default function ClientsPage() {
                         </div>
                     </div>
                 </div>
-                {client.whatsapp && (
-                    <button 
-                        onClick={(e) => handleWhatsAppClick(e, client.whatsapp)}
-                        className="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center shadow-3d hover:scale-110 transition-transform"
-                    >
-                        <MessageCircle className="w-5 h-5" />
-                    </button>
-                )}
+                <div className="flex gap-2">
+                    {client.phone && (
+                        <button 
+                            onClick={(e) => handlePhoneClick(e, client.phone)}
+                            className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shadow-3d hover:scale-110 transition-transform"
+                        >
+                            <Phone className="w-5 h-5" />
+                        </button>
+                    )}
+                    {client.whatsapp && (
+                        <button 
+                            onClick={(e) => handleWhatsAppClick(e, client.whatsapp)}
+                            className="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center shadow-3d hover:scale-110 transition-transform"
+                        >
+                            <MessageCircle className="w-5 h-5" />
+                        </button>
+                    )}
+                </div>
             </div>
         ))}
       </div>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Receipt, Plus, Wallet } from 'lucide-react';
+import { ArrowRight, Receipt, Plus, Wallet, AlertCircle } from 'lucide-react';
 import { getStoredExpenses, saveStoredExpenses, Expense, getStoredBalances, saveStoredBalances, BANKS_LIST } from '@/lib/store';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -15,13 +15,15 @@ export default function ExpensesPage() {
   const [selectedBank, setSelectedBank] = useState('');
   const [open, setOpen] = useState(false);
   const [balances, setBalances] = useState<Record<string, number>>({});
+  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
     setExpenses(getStoredExpenses());
     setBalances(getStoredBalances());
-  }, [open]); // Refresh balances when dialog opens
+  }, [open]);
 
   const handleAddExpense = () => {
+    setErrorMsg('');
     if (!title || !amount || !selectedBank) return;
     const cost = parseFloat(amount);
     if (cost <= 0) return;
@@ -29,7 +31,7 @@ export default function ExpensesPage() {
     const currentBalance = balances[selectedBank] || 0;
 
     if (currentBalance < cost) {
-        alert("رصيد الحساب المختار غير كافي لتغطية المصروف");
+        setErrorMsg("رصيد الحساب المختار غير كافي لتغطية المصروف");
         return;
     }
 
@@ -70,7 +72,10 @@ export default function ExpensesPage() {
       </header>
 
       <div className="mb-6">
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={(val) => {
+            if(!val) setErrorMsg('');
+            setOpen(val);
+        }}>
             <DialogTrigger asChild>
                 <button className="w-full py-4 rounded-2xl bg-[#eef2f6] text-red-500 font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all flex items-center justify-center gap-2">
                     <Plus className="w-5 h-5" />
@@ -118,6 +123,14 @@ export default function ExpensesPage() {
                             className="bg-white shadow-3d-inset border-none"
                         />
                     </div>
+
+                    {errorMsg && (
+                        <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm font-bold flex items-center gap-2 border border-red-100 shadow-sm animate-in fade-in">
+                            <AlertCircle className="w-4 h-4" />
+                            {errorMsg}
+                        </div>
+                    )}
+
                     <button onClick={handleAddExpense} className="w-full py-3 bg-red-600 text-white rounded-xl font-bold shadow-lg">خصم وتسجيل</button>
                 </div>
             </DialogContent>

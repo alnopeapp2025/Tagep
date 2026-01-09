@@ -86,11 +86,20 @@ export default function AccountsPage() {
   };
 
   const handleZeroTreasury = () => {
-    const zeroed = BANKS_LIST.reduce((acc, bank) => ({ ...acc, [bank]: 0 }), {});
-    saveStoredBalances(zeroed);
-    loadData();
-    setZeroOpen(false);
+    if (confirm("تحذير هام: سيتم حذف جميع الأرصدة وتصفير الخزينة نهائياً. هل أنت متأكد؟")) {
+        const zeroed = BANKS_LIST.reduce((acc, bank) => ({ ...acc, [bank]: 0 }), {});
+        saveStoredBalances(zeroed);
+        loadData();
+        setZeroOpen(false);
+    }
   };
+
+  // Sort banks by balance (Highest first)
+  const sortedBanks = [...BANKS_LIST].sort((a, b) => {
+    const balA = balances[a] || 0;
+    const balB = balances[b] || 0;
+    return balB - balA;
+  });
 
   return (
     <div className="max-w-6xl mx-auto pb-20">
@@ -137,12 +146,12 @@ export default function AccountsPage() {
 
       <h3 className="text-xl font-bold text-gray-700 mb-6 flex items-center gap-2">
         <Landmark className="w-6 h-6 text-gray-500" />
-        تفاصيل البنوك
+        تفاصيل البنوك (الأعلى رصيداً)
       </h3>
       
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        {BANKS_LIST.map((bank) => (
-          <div key={bank} className="bg-[#eef2f6] rounded-2xl shadow-3d p-4 flex flex-col items-center justify-center text-center transition-transform hover:-translate-y-1 duration-300">
+        {sortedBanks.map((bank) => (
+          <div key={bank} className="bg-[#eef2f6] rounded-2xl shadow-3d p-4 flex flex-col items-center justify-center text-center transition-all duration-500 hover:-translate-y-1">
             <div className="w-12 h-12 rounded-full bg-white shadow-3d-inset flex items-center justify-center mb-3 text-blue-600">
               {bank.includes('كاش') ? <Wallet className="w-6 h-6" /> : <Landmark className="w-6 h-6" />}
             </div>
@@ -236,6 +245,19 @@ export default function AccountsPage() {
                 </DialogFooter>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={zeroOpen} onOpenChange={setZeroOpen}>
+        <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
+            <DialogHeader><DialogTitle className="text-red-600">تصفير الخزينة</DialogTitle></DialogHeader>
+            <div className="py-6 text-center">
+                <p className="font-bold text-gray-700 mb-4">هل أنت متأكد من رغبتك في تصفير جميع الحسابات؟</p>
+                <div className="flex gap-3 justify-center">
+                    <button onClick={handleZeroTreasury} className="px-6 py-2 bg-red-600 text-white rounded-xl font-bold shadow-lg">نعم، تصفير</button>
+                    <button onClick={() => setZeroOpen(false)} className="px-6 py-2 bg-gray-300 text-gray-700 rounded-xl font-bold">إلغاء</button>
+                </div>
+            </div>
         </DialogContent>
       </Dialog>
     </div>

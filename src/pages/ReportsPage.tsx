@@ -79,21 +79,21 @@ export default function ReportsPage() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const StatCard = ({ title, value, icon: Icon, colorClass, valueColorClass, subText }: any) => (
-    <div className="bg-[#eef2f6] rounded-2xl shadow-3d p-5 flex items-center gap-4 border border-white/50">
-      <div className={`w-12 h-12 rounded-xl shadow-3d-inset flex items-center justify-center ${colorClass}`}>
-        <Icon className="w-6 h-6" />
+    <div className="bg-[#eef2f6] rounded-2xl shadow-3d p-4 flex items-center gap-3 border border-white/50">
+      <div className={`w-10 h-10 rounded-xl shadow-3d-inset flex items-center justify-center ${colorClass}`}>
+        <Icon className="w-5 h-5" />
       </div>
       <div>
-        <p className="text-gray-500 text-xs font-bold mb-1">{title}</p>
-        <h3 className={`text-xl font-black ${valueColorClass || 'text-gray-800'}`}>{value}</h3>
-        {subText && <p className="text-[10px] text-gray-400">{subText}</p>}
+        <p className="text-gray-500 text-[10px] font-bold mb-0.5">{title}</p>
+        <h3 className={`text-lg font-black ${valueColorClass || 'text-gray-800'}`}>{value}</h3>
+        {subText && <p className="text-[9px] text-gray-400">{subText}</p>}
       </div>
     </div>
   );
 
   return (
     <div className="max-w-6xl mx-auto pb-20">
-      <header className="mb-8 flex items-center gap-4">
+      <header className="mb-6 flex items-center gap-4">
         <button 
           onClick={() => navigate('/')}
           className="p-3 rounded-full bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active text-gray-600 transition-all"
@@ -106,7 +106,8 @@ export default function ReportsPage() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      {/* Compact Grid Gap */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         <StatCard 
             title="معاملات اليوم" 
             value={stats.todayCount} 
@@ -134,7 +135,7 @@ export default function ReportsPage() {
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
         <StatCard 
             title="تم الإنجاز" 
             value={stats.completedCount} 
@@ -158,19 +159,19 @@ export default function ReportsPage() {
         />
       </div>
 
-      <h3 className="text-xl font-bold text-gray-700 mb-4">القيم المالية</h3>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-blue-600 text-white rounded-3xl shadow-3d p-6 text-center">
-            <p className="opacity-80 mb-2 font-medium">قيمة معاملات الأسبوع</p>
-            <h2 className="text-3xl font-black">{stats.weekValue.toLocaleString()} ر.س</h2>
+      <h3 className="text-xl font-bold text-gray-700 mb-4 mt-6">القيم المالية</h3>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-blue-600 text-white rounded-3xl shadow-3d p-5 text-center">
+            <p className="opacity-80 mb-2 font-medium text-xs">قيمة معاملات الأسبوع</p>
+            <h2 className="text-2xl font-black">{stats.weekValue.toLocaleString()} ر.س</h2>
         </div>
-        <div className="bg-indigo-600 text-white rounded-3xl shadow-3d p-6 text-center">
-            <p className="opacity-80 mb-2 font-medium">قيمة معاملات الشهر</p>
-            <h2 className="text-3xl font-black">{stats.monthValue.toLocaleString()} ر.س</h2>
+        <div className="bg-indigo-600 text-white rounded-3xl shadow-3d p-5 text-center">
+            <p className="opacity-80 mb-2 font-medium text-xs">قيمة معاملات الشهر</p>
+            <h2 className="text-2xl font-black">{stats.monthValue.toLocaleString()} ر.س</h2>
         </div>
-        <div className="bg-gray-800 text-white rounded-3xl shadow-3d p-6 text-center">
-            <p className="opacity-80 mb-2 font-medium">قيمة كل المعاملات</p>
-            <h2 className="text-3xl font-black">{stats.totalValue.toLocaleString()} ر.س</h2>
+        <div className="bg-gray-800 text-white rounded-3xl shadow-3d p-5 text-center">
+            <p className="opacity-80 mb-2 font-medium text-xs">قيمة كل المعاملات</p>
+            <h2 className="text-2xl font-black">{stats.totalValue.toLocaleString()} ر.س</h2>
         </div>
       </div>
 
