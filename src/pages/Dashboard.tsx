@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { 
   FileText, Wallet, BarChart3, Users, UserCheck, Settings, Bell, LogOut, 
   Trophy, Menu, Award, LogIn, Receipt, Calculator, Activity, Clock, CheckCircle2,
-  Search, Database, Trash2, Shield, AlertTriangle, Download, Upload, Crown, Mail, Phone, Lock, UserPlus
+  Search, Database, Trash2, Shield, AlertTriangle, Download, Upload, Crown, Mail, Phone, Lock, UserPlus, UserCircle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardButton } from '@/components/DashboardButton';
@@ -18,7 +18,10 @@ import {
   clearClients, 
   clearTransactions, 
   clearAllData,
-  Transaction 
+  Transaction,
+  getCurrentUser,
+  logoutUser,
+  User
 } from '@/lib/store';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
@@ -34,6 +37,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [achievers, setAchievers] = useState<{name: string, count: number, total: number}[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   
   // Ticker State
   const [tickerIndex, setTickerIndex] = useState(0);
@@ -68,6 +72,10 @@ export default function Dashboard() {
   const [privacyOpen, setPrivacyOpen] = useState(false);
 
   useEffect(() => {
+    // Load User
+    const user = getCurrentUser();
+    setCurrentUser(user);
+
     const txs = getStoredTransactions();
     setTransactions(txs);
     setAchievers(calculateAchievers(txs));
@@ -97,6 +105,11 @@ export default function Dashboard() {
         clearInterval(randomInterval);
     };
   }, []);
+
+  const handleLogout = () => {
+    logoutUser();
+    navigate('/login');
+  };
 
   const handleInquiry = () => {
     setInquiryError('');
@@ -169,7 +182,20 @@ export default function Dashboard() {
             <p className="text-gray-500 font-medium text-sm sm:text-base">لوحة التحكم الرئيسية</p>
           </div>
           
-          <div className="flex gap-3">
+          <div className="flex gap-3 items-center">
+            
+            {/* User Profile Icon (New) */}
+            {currentUser && (
+                <div className="flex flex-col items-center justify-center mr-2">
+                    <div className="w-10 h-10 rounded-full bg-blue-100 shadow-3d flex items-center justify-center text-blue-600 mb-1">
+                        <UserCircle className="w-6 h-6" />
+                    </div>
+                    <p className="text-[10px] font-bold text-gray-600 truncate max-w-[80px]">
+                        مرحباً {currentUser.officeName}
+                    </p>
+                </div>
+            )}
+
             {/* Hamburger Menu (Sheet) */}
             <Sheet>
               <SheetTrigger asChild>
@@ -183,10 +209,18 @@ export default function Dashboard() {
                 </SheetHeader>
                 
                 <div className="flex flex-col gap-3">
-                  <button onClick={() => navigate('/login')} className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
-                    <LogIn className="w-5 h-5 text-blue-600" />
-                    تسجيل دخول
-                  </button>
+                  
+                  {currentUser ? (
+                    <button onClick={handleLogout} className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-red-600 font-bold">
+                        <LogOut className="w-5 h-5" />
+                        تسجيل خروج
+                    </button>
+                  ) : (
+                    <button onClick={() => navigate('/login')} className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
+                        <LogIn className="w-5 h-5 text-blue-600" />
+                        تسجيل دخول
+                    </button>
+                  )}
 
                   {/* Employee Login Button */}
                   <Dialog open={empLoginOpen} onOpenChange={setEmpLoginOpen}>

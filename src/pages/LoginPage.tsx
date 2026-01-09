@@ -1,6 +1,6 @@
-import { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Phone, Lock, LogIn, UserPlus, HelpCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Phone, Lock, LogIn, UserPlus, HelpCircle, AlertCircle, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { loginUser } from '@/lib/store';
 
 const securityQuestions = [
   "اين ولدت والدتك؟",
@@ -29,9 +30,12 @@ const securityQuestions = [
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState(false);
   
   // Refs for auto-focus
   const phoneRef = useRef<HTMLInputElement>(null);
@@ -39,6 +43,23 @@ export default function LoginPage() {
 
   // Forgot Password State
   const [forgotOpen, setForgotOpen] = useState(false);
+
+  // Auto-fill from Registration
+  useEffect(() => {
+    if (location.state) {
+        if (location.state.phone) setPhone(location.state.phone);
+        if (location.state.password) setPassword(location.state.password);
+        
+        if (location.state.registeredSuccess) {
+            setSuccessMsg(true);
+            // Hide success message after 2 seconds
+            const timer = setTimeout(() => {
+                setSuccessMsg(false);
+            }, 2000);
+            return () => clearTimeout(timer);
+        }
+    }
+  }, [location]);
 
   const handleLogin = () => {
     setError('');
@@ -55,14 +76,29 @@ export default function LoginPage() {
         return;
     }
 
-    // Mock Login Success
-    navigate('/');
+    const result = loginUser(phone, password);
+
+    if (result.success) {
+        navigate('/');
+    } else {
+        setError(result.message || 'فشل الدخول');
+    }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-[#eef2f6] rounded-3xl shadow-3d p-8 border border-white/50">
+      <div className="w-full max-w-md bg-[#eef2f6] rounded-3xl shadow-3d p-8 border border-white/50 relative">
         
+        {/* Success Message Overlay */}
+        {successMsg && (
+            <div className="absolute inset-0 bg-[#eef2f6]/95 backdrop-blur-sm z-50 rounded-3xl flex flex-col items-center justify-center animate-in fade-in duration-300">
+                <div className="w-20 h-20 bg-green-100 rounded-full shadow-3d flex items-center justify-center mb-4 text-green-600 border-4 border-green-200">
+                    <CheckCircle2 className="w-10 h-10" strokeWidth={3} />
+                </div>
+                <h2 className="text-xl font-black text-green-700">تم تسجيل حسابك بنجاح</h2>
+            </div>
+        )}
+
         <div className="text-center mb-8">
           <div className="w-20 h-20 bg-blue-600 rounded-2xl mx-auto shadow-3d flex items-center justify-center mb-4 rotate-3 hover:rotate-0 transition-all duration-500">
             <LogIn className="w-10 h-10 text-white" />

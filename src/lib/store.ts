@@ -12,6 +12,16 @@ export const BANKS_LIST = [
 export const INITIAL_BALANCES: Record<string, number> = BANKS_LIST.reduce((acc, bank) => ({ ...acc, [bank]: 0 }), {});
 
 // --- Types ---
+export interface User {
+  id: number;
+  officeName: string;
+  phone: string;
+  passwordHash: string; // Hashed Password
+  securityQuestion: string;
+  securityAnswer: string;
+  createdAt: number;
+}
+
 export interface Client {
   id: number;
   name: string;
@@ -79,7 +89,7 @@ export interface AppData {
 // --- Local Storage Helpers ---
 const TX_KEY = 'moaqeb_transactions_v1';
 const BAL_KEY = 'moaqeb_balances_v1';
-const PENDING_BAL_KEY = 'moaqeb_pending_balances_v1'; // NEW KEY
+const PENDING_BAL_KEY = 'moaqeb_pending_balances_v1';
 const CLIENTS_KEY = 'moaqeb_clients_v1';
 const AGENTS_KEY = 'moaqeb_agents_v1';
 const EXPENSES_KEY = 'moaqeb_expenses_v1';
@@ -87,6 +97,72 @@ const EXT_AGENTS_KEY = 'moaqeb_ext_agents_v1';
 const LESSONS_KEY = 'moaqeb_lessons_v1';
 const AGENT_TRANSFERS_KEY = 'moaqeb_agent_transfers_v1';
 const CLIENT_REFUNDS_KEY = 'moaqeb_client_refunds_v1';
+const USERS_KEY = 'moaqeb_users_v1'; // NEW: Users Storage
+const CURRENT_USER_KEY = 'moaqeb_current_user_v1'; // NEW: Session Storage
+
+// --- User Management (Auth) ---
+
+// Simple Hash Function (Simulation for Frontend)
+const hashPassword = (pwd: string) => {
+  return btoa(pwd).split('').reverse().join(''); // Simple obfuscation
+};
+
+export const getStoredUsers = (): User[] => {
+  try {
+    const stored = localStorage.getItem(USERS_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const registerUser = (user: Omit<User, 'id' | 'createdAt' | 'passwordHash'> & { password: string }) => {
+  const users = getStoredUsers();
+  
+  // Check if phone exists
+  if (users.find(u => u.phone === user.phone)) {
+    return { success: false, message: 'رقم الهاتف مسجل مسبقاً' };
+  }
+
+  const newUser: User = {
+    id: Date.now(),
+    officeName: user.officeName,
+    phone: user.phone,
+    passwordHash: hashPassword(user.password),
+    securityQuestion: user.securityQuestion,
+    securityAnswer: user.securityAnswer,
+    createdAt: Date.now()
+  };
+
+  users.push(newUser);
+  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+  return { success: true, user: newUser };
+};
+
+export const loginUser = (phone: string, password: string) => {
+  const users = getStoredUsers();
+  const user = users.find(u => u.phone === phone && u.passwordHash === hashPassword(password));
+  
+  if (user) {
+    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
+    return { success: true, user };
+  }
+  return { success: false, message: 'بيانات الدخول غير صحيحة' };
+};
+
+export const getCurrentUser = (): User | null => {
+  try {
+    const stored = localStorage.getItem(CURRENT_USER_KEY);
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    return null;
+  }
+};
+
+export const logoutUser = () => {
+  localStorage.removeItem(CURRENT_USER_KEY);
+};
+
 
 // Transactions
 export const getStoredTransactions = (): Transaction[] => {
@@ -116,7 +192,7 @@ export const saveStoredBalances = (balances: Record<string, number>) => {
   localStorage.setItem(BAL_KEY, JSON.stringify(balances));
 };
 
-// Pending Balances (Unearned Treasury) - NEW
+// Pending Balances (Unearned Treasury)
 export const getStoredPendingBalances = (): Record<string, number> => {
   try {
     const stored = localStorage.getItem(PENDING_BAL_KEY);
@@ -251,7 +327,7 @@ export const createBackup = () => {
   const data = {
     transactions: getStoredTransactions(),
     balances: getStoredBalances(),
-    pendingBalances: getStoredPendingBalances(), // Include Pending
+    pendingBalances: getStoredPendingBalances(),
     clients: getStoredClients(),
     agents: getStoredAgents(),
     expenses: getStoredExpenses(),
@@ -259,6 +335,7 @@ export const createBackup = () => {
     lessons: getStoredLessons(),
     agentTransfers: getStoredAgentTransfers(),
     clientRefunds: getStoredClientRefunds(),
+    users: getStoredUsers(), // Include Users
     timestamp: Date.now()
   };
   return JSON.stringify(data);
@@ -277,6 +354,7 @@ export const restoreBackup = (jsonData: string) => {
     if (data.lessons) saveStoredLessons(data.lessons);
     if (data.agentTransfers) saveStoredAgentTransfers(data.agentTransfers);
     if (data.clientRefunds) saveStoredClientRefunds(data.clientRefunds);
+    if (data.users) localStorage.setItem(USERS_KEY, JSON.stringify(data.users));
     return true;
   } catch (e) {
     console.error("Restore failed", e);

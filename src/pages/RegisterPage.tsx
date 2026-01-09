@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { registerUser } from '@/lib/store';
 
 const securityQuestions = [
   "اين ولدت والدتك؟",
@@ -32,9 +33,28 @@ export default function RegisterPage() {
 
   const handleRegister = () => {
     if (formData.officeName && formData.phone && formData.password && formData.securityQuestion) {
-      // Mock Registration
-      alert('تم استلام طلب العضوية بنجاح!');
-      navigate('/login');
+      
+      const result = registerUser({
+        officeName: formData.officeName,
+        phone: formData.phone,
+        password: formData.password,
+        securityQuestion: formData.securityQuestion,
+        securityAnswer: formData.securityAnswer
+      });
+
+      if (result.success) {
+        // Redirect to Login with Auto-fill Data
+        navigate('/login', { 
+            state: { 
+                phone: formData.phone, 
+                password: formData.password,
+                registeredSuccess: true 
+            } 
+        });
+      } else {
+        alert(result.message || 'فشل التسجيل');
+      }
+
     } else {
       alert('يرجى ملء جميع الحقول المطلوبة');
     }
