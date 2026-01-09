@@ -8,7 +8,9 @@ export default function ReportsPage() {
   const navigate = useNavigate();
   const [stats, setStats] = useState({
     todayCount: 0,
+    todayProfit: 0, // NEW
     weekCount: 0,
+    weekProfit: 0, // NEW
     monthCount: 0,
     completedCount: 0,
     cancelledCount: 0,
@@ -39,6 +41,10 @@ export default function ReportsPage() {
     let compC = 0, cancC = 0;
     let totalV = 0, weekV = 0, monthV = 0;
     let agentsV = 0;
+    
+    // Profit Calcs
+    let todayRev = 0, todayCost = 0;
+    let weekRev = 0, weekCost = 0;
     let monthRev = 0, monthCost = 0;
 
     txs.forEach(t => {
@@ -62,7 +68,15 @@ export default function ReportsPage() {
       // Agent Totals (Cost)
       agentsV += agentPrice;
 
-      // Monthly Profit Calculation (Revenue - Cost for this month)
+      // Profit Calculation (Revenue - Cost)
+      if (tDate >= startOfDay) {
+        todayRev += clientPrice;
+        todayCost += agentPrice;
+      }
+      if (tDate >= startOfWeek) {
+        weekRev += clientPrice;
+        weekCost += agentPrice;
+      }
       if (tDate >= startOfMonth) {
         monthRev += clientPrice;
         monthCost += agentPrice;
@@ -71,7 +85,9 @@ export default function ReportsPage() {
 
     setStats({
       todayCount: todayC,
+      todayProfit: todayRev - todayCost,
       weekCount: weekC,
+      weekProfit: weekRev - weekCost,
       monthCount: monthC,
       completedCount: compC,
       cancelledCount: cancC,
@@ -120,8 +136,9 @@ export default function ReportsPage() {
         </TabsList>
 
         <TabsContent value="general">
-            {/* Compact Grid Gap */}
+            {/* Row 1: Today & Week (Transactions + Profits) */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 mb-3">
+                {/* Today Pair */}
                 <StatCard 
                     title="معاملات اليوم" 
                     value={stats.todayCount} 
@@ -129,11 +146,31 @@ export default function ReportsPage() {
                     colorClass="text-blue-500" 
                 />
                 <StatCard 
+                    title="أرباح اليوم" 
+                    value={`${stats.todayProfit.toLocaleString()} ر.س`} 
+                    icon={DollarSign} 
+                    colorClass="text-green-600" 
+                    valueColorClass="text-blue-600"
+                />
+
+                {/* Week Pair */}
+                <StatCard 
                     title="معاملات الأسبوع" 
                     value={stats.weekCount} 
                     icon={Calendar} 
                     colorClass="text-indigo-500" 
                 />
+                <StatCard 
+                    title="أرباح الأسبوع" 
+                    value={`${stats.weekProfit.toLocaleString()} ر.س`} 
+                    icon={DollarSign} 
+                    colorClass="text-green-600" 
+                    valueColorClass="text-blue-600"
+                />
+            </div>
+
+            {/* Row 2: Month & Others */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 mb-3">
                 <StatCard 
                     title="معاملات الشهر" 
                     value={stats.monthCount} 
@@ -147,23 +184,23 @@ export default function ReportsPage() {
                     colorClass="text-green-600" 
                     valueColorClass="text-blue-600"
                 />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
-                <StatCard 
+                 <StatCard 
                     title="تم الإنجاز" 
                     value={stats.completedCount} 
                     icon={CheckCircle} 
                     colorClass="text-green-500" 
                     subText="إجمالي المعاملات المكتملة"
                 />
-                <StatCard 
+                 <StatCard 
                     title="تم الإلغاء" 
                     value={stats.cancelledCount} 
                     icon={XCircle} 
                     colorClass="text-red-500" 
                     subText="إجمالي المعاملات الملغاة"
                 />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
                 <StatCard 
                     title="مجموع حساب المعقبين" 
                     value={`${stats.agentsTotal.toLocaleString()} ر.س`} 
