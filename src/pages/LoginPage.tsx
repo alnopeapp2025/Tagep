@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Phone, Lock, LogIn, UserPlus, HelpCircle, AlertCircle, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { Phone, Lock, LogIn, UserPlus, HelpCircle, AlertCircle, RefreshCw, CheckCircle2, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -36,6 +36,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState(false);
+  const [loading, setLoading] = useState(false);
   
   // Refs for auto-focus
   const phoneRef = useRef<HTMLInputElement>(null);
@@ -61,7 +62,7 @@ export default function LoginPage() {
     }
   }, [location]);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     setError('');
     
     if (!phone) {
@@ -76,12 +77,19 @@ export default function LoginPage() {
         return;
     }
 
-    const result = loginUser(phone, password);
+    setLoading(true);
+    try {
+        const result = await loginUser(phone, password);
 
-    if (result.success) {
-        navigate('/');
-    } else {
-        setError(result.message || 'فشل الدخول');
+        if (result.success) {
+            navigate('/');
+        } else {
+            setError(result.message || 'فشل الدخول');
+        }
+    } catch (err) {
+        setError('حدث خطأ غير متوقع');
+    } finally {
+        setLoading(false);
     }
   };
 
@@ -152,9 +160,10 @@ export default function LoginPage() {
 
           <button 
             onClick={handleLogin}
-            className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all flex items-center justify-center gap-2 mt-6"
+            disabled={loading}
+            className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all flex items-center justify-center gap-2 mt-6 disabled:opacity-70 disabled:cursor-not-allowed"
           >
-            <LogIn className="w-5 h-5" />
+            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <LogIn className="w-5 h-5" />}
             دخول
           </button>
 

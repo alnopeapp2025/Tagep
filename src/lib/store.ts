@@ -1,4 +1,5 @@
 import { Transaction } from '@/pages/TransactionsPage';
+import { supabase } from './supabase';
 
 // Re-export Transaction so other files can import it from store
 export type { Transaction };
@@ -97,57 +98,91 @@ const EXT_AGENTS_KEY = 'moaqeb_ext_agents_v1';
 const LESSONS_KEY = 'moaqeb_lessons_v1';
 const AGENT_TRANSFERS_KEY = 'moaqeb_agent_transfers_v1';
 const CLIENT_REFUNDS_KEY = 'moaqeb_client_refunds_v1';
-const USERS_KEY = 'moaqeb_users_v1'; // NEW: Users Storage
-const CURRENT_USER_KEY = 'moaqeb_current_user_v1'; // NEW: Session Storage
+const CURRENT_USER_KEY = 'moaqeb_current_user_v1'; // Session Storage
 
-// --- User Management (Auth) ---
+// --- User Management (Supabase Auth) ---
 
-// Simple Hash Function (Simulation for Frontend)
+// Simple Hash Function
 const hashPassword = (pwd: string) => {
-  return btoa(pwd).split('').reverse().join(''); // Simple obfuscation
+  return btoa(pwd).split('').reverse().join(''); 
 };
 
-export const getStoredUsers = (): User[] => {
+export const registerUser = async (user: Omit<User, 'id' | 'createdAt' | 'passwordHash'> & { password: string }) => {
   try {
-    const stored = localStorage.getItem(USERS_KEY);
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
+    // 1. Check if phone exists
+    const { data: existingUsers, error: checkError } = await supabase
+      .from('users')
+      .select('phone')
+      .eq('phone', user.phone);
+
+    if (checkError) {
+        console.error('Check error:', checkError);
+        return { success: false, message: 'حدث خطأ أثناء التحقق من البيانات' };
+    }
+
+    if (existingUsers && existingUsers.length > 0) {
+      return { success: false, message: 'رقم الهاتف مسجل مسبقاً' };
+    }
+
+    // 2. Insert new user
+    const passwordHash = hashPassword(user.password);
+    
+    const { error: insertError } = await supabase
+      .from('users')
+      .insert([
+        {
+          office_name: user.officeName,
+          phone: user.phone,
+          password_hash: passwordHash,
+          security_question: user.securityQuestion,
+          security_answer: user.securityAnswer
+        }
+      ]);
+
+    if (insertError) {
+      console.error('Insert error:', insertError);
+      return { success: false, message: 'فشل إنشاء الحساب، يرجى المحاولة لاحقاً' };
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error('Registration error:', err);
+    return { success: false, message: 'حدث خطأ غير متوقع' };
   }
 };
 
-export const registerUser = (user: Omit<User, 'id' | 'createdAt' | 'passwordHash'> & { password: string }) => {
-  const users = getStoredUsers();
-  
-  // Check if phone exists
-  if (users.find(u => u.phone === user.phone)) {
-    return { success: false, message: 'رقم الهاتف مسجل مسبقاً' };
-  }
+export const loginUser = async (phone: string, password: string) => {
+  try {
+    const passwordHash = hashPassword(password);
 
-  const newUser: User = {
-    id: Date.now(),
-    officeName: user.officeName,
-    phone: user.phone,
-    passwordHash: hashPassword(user.password),
-    securityQuestion: user.securityQuestion,
-    securityAnswer: user.securityAnswer,
-    createdAt: Date.now()
-  };
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('phone', phone)
+      .eq('password_hash', passwordHash)
+      .single();
 
-  users.push(newUser);
-  localStorage.setItem(USERS_KEY, JSON.stringify(users));
-  return { success: true, user: newUser };
-};
+    if (error || !data) {
+      return { success: false, message: 'بيانات الدخول غير صحيحة' };
+    }
 
-export const loginUser = (phone: string, password: string) => {
-  const users = getStoredUsers();
-  const user = users.find(u => u.phone === phone && u.passwordHash === hashPassword(password));
-  
-  if (user) {
+    // Map DB columns to User interface
+    const user: User = {
+        id: data.id,
+        officeName: data.office_name,
+        phone: data.phone,
+        passwordHash: data.password_hash,
+        securityQuestion: data.security_question,
+        securityAnswer: data.security_answer,
+        createdAt: new Date(data.created_at).getTime()
+    };
+
     localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
     return { success: true, user };
+  } catch (err) {
+    console.error('Login error:', err);
+    return { success: false, message: 'حدث خطأ أثناء تسجيل الدخول' };
   }
-  return { success: false, message: 'بيانات الدخول غير صحيحة' };
 };
 
 export const getCurrentUser = (): User | null => {
@@ -335,7 +370,6 @@ export const createBackup = () => {
     lessons: getStoredLessons(),
     agentTransfers: getStoredAgentTransfers(),
     clientRefunds: getStoredClientRefunds(),
-    users: getStoredUsers(), // Include Users
     timestamp: Date.now()
   };
   return JSON.stringify(data);
@@ -354,7 +388,6 @@ export const restoreBackup = (jsonData: string) => {
     if (data.lessons) saveStoredLessons(data.lessons);
     if (data.agentTransfers) saveStoredAgentTransfers(data.agentTransfers);
     if (data.clientRefunds) saveStoredClientRefunds(data.clientRefunds);
-    if (data.users) localStorage.setItem(USERS_KEY, JSON.stringify(data.users));
     return true;
   } catch (e) {
     console.error("Restore failed", e);

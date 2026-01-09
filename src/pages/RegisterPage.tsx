@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Phone, Lock, UserPlus, ArrowRight, HelpCircle } from 'lucide-react';
+import { Building2, Phone, Lock, UserPlus, ArrowRight, HelpCircle, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -23,6 +23,7 @@ const securityQuestions = [
 
 export default function RegisterPage() {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     officeName: '',
     phone: '',
@@ -31,32 +32,40 @@ export default function RegisterPage() {
     securityAnswer: ''
   });
 
-  const handleRegister = () => {
-    if (formData.officeName && formData.phone && formData.password && formData.securityQuestion) {
-      
-      const result = registerUser({
-        officeName: formData.officeName,
-        phone: formData.phone,
-        password: formData.password,
-        securityQuestion: formData.securityQuestion,
-        securityAnswer: formData.securityAnswer
-      });
+  const handleRegister = async () => {
+    // Strict Validation
+    if (!formData.officeName || !formData.phone || !formData.password || !formData.securityQuestion || !formData.securityAnswer) {
+      alert('يرجى ملء جميع الحقول المطلوبة (بما في ذلك سؤال الأمان وإجابته)');
+      return;
+    }
 
-      if (result.success) {
-        // Redirect to Login with Auto-fill Data
-        navigate('/login', { 
-            state: { 
-                phone: formData.phone, 
-                password: formData.password,
-                registeredSuccess: true 
-            } 
+    setLoading(true);
+    
+    try {
+        const result = await registerUser({
+            officeName: formData.officeName,
+            phone: formData.phone,
+            password: formData.password,
+            securityQuestion: formData.securityQuestion,
+            securityAnswer: formData.securityAnswer
         });
-      } else {
-        alert(result.message || 'فشل التسجيل');
-      }
 
-    } else {
-      alert('يرجى ملء جميع الحقول المطلوبة');
+        if (result.success) {
+            // Redirect to Login with Auto-fill Data
+            navigate('/login', { 
+                state: { 
+                    phone: formData.phone, 
+                    password: formData.password,
+                    registeredSuccess: true 
+                } 
+            });
+        } else {
+            alert(result.message || 'فشل التسجيل');
+        }
+    } catch (error) {
+        alert('حدث خطأ غير متوقع');
+    } finally {
+        setLoading(false);
     }
   };
 
@@ -81,7 +90,7 @@ export default function RegisterPage() {
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label className="font-bold text-gray-600">اسم المكتب</Label>
+            <Label className="font-bold text-gray-600">اسم المكتب <span className="text-red-500">*</span></Label>
             <div className="relative">
               <Input 
                 value={formData.officeName}
@@ -94,7 +103,7 @@ export default function RegisterPage() {
           </div>
 
           <div className="space-y-2">
-            <Label className="font-bold text-gray-600">رقم الجوال</Label>
+            <Label className="font-bold text-gray-600">رقم الجوال <span className="text-red-500">*</span></Label>
             <div className="relative">
               <Input 
                 value={formData.phone}
@@ -107,7 +116,7 @@ export default function RegisterPage() {
           </div>
 
           <div className="space-y-2">
-            <Label className="font-bold text-gray-600">كلمة المرور</Label>
+            <Label className="font-bold text-gray-600">كلمة المرور <span className="text-red-500">*</span></Label>
             <div className="relative">
               <Input 
                 type="password"
@@ -121,7 +130,7 @@ export default function RegisterPage() {
           </div>
 
           <div className="space-y-2">
-            <Label className="font-bold text-gray-600">سؤال الأمان</Label>
+            <Label className="font-bold text-gray-600">سؤال الأمان <span className="text-red-500">*</span></Label>
             <Select 
               onValueChange={(val) => setFormData({...formData, securityQuestion: val})}
             >
@@ -136,26 +145,25 @@ export default function RegisterPage() {
             </Select>
           </div>
 
-          {formData.securityQuestion && (
-            <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-              <Label className="font-bold text-gray-600">إجابة السؤال</Label>
-              <div className="relative">
-                <Input 
-                  value={formData.securityAnswer}
-                  onChange={(e) => setFormData({...formData, securityAnswer: e.target.value})}
-                  className="bg-[#eef2f6] shadow-3d-inset border-none pl-10 h-12"
-                  placeholder="اكتب إجابتك هنا"
-                />
-                <HelpCircle className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
-              </div>
+          <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+            <Label className="font-bold text-gray-600">إجابة السؤال <span className="text-red-500">*</span></Label>
+            <div className="relative">
+            <Input 
+                value={formData.securityAnswer}
+                onChange={(e) => setFormData({...formData, securityAnswer: e.target.value})}
+                className="bg-[#eef2f6] shadow-3d-inset border-none pl-10 h-12"
+                placeholder="اكتب إجابتك هنا"
+            />
+            <HelpCircle className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
             </div>
-          )}
+          </div>
 
           <button 
             onClick={handleRegister}
-            className="w-full py-4 bg-gray-800 text-white rounded-xl font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all flex items-center justify-center gap-2 mt-6"
+            disabled={loading}
+            className="w-full py-4 bg-gray-800 text-white rounded-xl font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all flex items-center justify-center gap-2 mt-6 disabled:opacity-70 disabled:cursor-not-allowed"
           >
-            <UserPlus className="w-5 h-5" />
+            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <UserPlus className="w-5 h-5" />}
             تسجيل العضوية
           </button>
         </div>
