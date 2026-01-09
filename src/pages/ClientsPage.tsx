@@ -5,7 +5,8 @@ import {
   getStoredClients, saveStoredClients, Client, 
   getStoredTransactions, Transaction, saveStoredTransactions,
   getStoredBalances, saveStoredBalances, BANKS_LIST,
-  getStoredClientRefunds, saveStoredClientRefunds, ClientRefundRecord
+  getStoredClientRefunds, saveStoredClientRefunds, ClientRefundRecord,
+  getStoredPendingBalances, saveStoredPendingBalances
 } from '@/lib/store';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -30,13 +31,13 @@ export default function ClientsPage() {
   // Refund States
   const [transferStep, setTransferStep] = useState<'summary' | 'bank-select' | 'success'>('summary');
   const [selectedBank, setSelectedBank] = useState('');
-  const [balances, setBalances] = useState<Record<string, number>>({});
+  const [pendingBalances, setPendingBalances] = useState<Record<string, number>>({});
   const [transferError, setTransferError] = useState('');
   const [totalRefundable, setTotalRefundable] = useState(0);
 
   useEffect(() => {
     setClients(getStoredClients());
-    setBalances(getStoredBalances());
+    setPendingBalances(getStoredPendingBalances());
   }, []);
 
   // Calculate Total Refundable whenever transactions change
@@ -101,9 +102,6 @@ export default function ClientsPage() {
 
   const handleClientClick = (client: Client) => {
     const allTxs = getStoredTransactions();
-    // Filter transactions for this client, excluding refunded ones from the view if desired, 
-    // but typically we want to see them but marked as refunded. 
-    // The requirement says "remove from record", so we filter out refunded ones.
     const filtered = allTxs.filter(t => t.clientName === client.name && !t.clientRefunded);
     
     setClientTxs(filtered); 
@@ -111,7 +109,7 @@ export default function ClientsPage() {
     setTransferStep('summary');
     setTransferError('');
     setSelectedBank('');
-    setBalances(getStoredBalances());
+    setPendingBalances(getStoredPendingBalances());
   };
 
   const handleWhatsAppClick = (e: React.MouseEvent, number?: string) => {
@@ -129,17 +127,21 @@ export default function ClientsPage() {
   const handleRefundProcess = () => {
     if (!selectedBank || !selectedClient) return;
     
-    const currentBalance = balances[selectedBank] || 0;
-    if (currentBalance < totalRefundable) {
-        setTransferError('رصيد البنك المختار غير كافي');
+    // MODIFIED: Deduct from Pending Balances (not actual balances)
+    const currentPending = pendingBalances[selectedBank] || 0;
+    
+    // Note: We might allow refund even if pending is low if data was inconsistent, 
+    // but typically we check availability.
+    if (currentPending < totalRefundable) {
+        setTransferError('رصيد الخزنة غير المستحقة (المعلقة) لهذا البنك غير كافي');
         return;
     }
 
-    // 1. Deduct Amount from Bank
-    const newBalances = { ...balances };
-    newBalances[selectedBank] = currentBalance - totalRefundable;
-    saveStoredBalances(newBalances);
-    setBalances(newBalances);
+    // 1. Deduct Amount from Pending Treasury
+    const newPending = { ...pendingBalances };
+    newPending[selectedBank] = currentPending - totalRefundable;
+    saveStoredPendingBalances(newPending);
+    setPendingBalances(newPending);
 
     // 2. Mark Transactions as Refunded
     const allTxs = getStoredTransactions();
@@ -377,8 +379,8 @@ export default function ClientsPage() {
                                         <SelectItem key={bank} value={bank} className="text-right cursor-pointer my-1">
                                             <div className="flex justify-between w-full gap-4">
                                                 <span>{bank}</span>
-                                                <span className={`font-bold ${(balances[bank] || 0) >= totalRefundable ? 'text-green-600' : 'text-red-500'}`}>
-                                                    {(balances[bank] || 0).toLocaleString()} ر.س
+                                                <span className={`font-bold ${(pendingBalances[bank] || 0) >= totalRefundable ? 'text-green-600' : 'text-red-500'}`}>
+                                                    {(pendingBalances[bank] || 0).toLocaleString()} ر.س
                                                 </span>
                                             </div>
                                         </SelectItem>

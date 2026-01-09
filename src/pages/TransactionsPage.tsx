@@ -25,7 +25,8 @@ import {
   getStoredTransactions, saveStoredTransactions, 
   getStoredBalances, saveStoredBalances, 
   getStoredPendingBalances, saveStoredPendingBalances,
-  BANKS_LIST, getStoredClients, saveStoredClients, Client, getStoredAgents, saveStoredAgents, Agent 
+  BANKS_LIST, getStoredClients, saveStoredClients, Client, getStoredAgents, saveStoredAgents, Agent,
+  getCurrentUser, User
 } from '@/lib/store';
 
 // --- Types ---
@@ -42,8 +43,8 @@ export interface Transaction {
   createdAt: number;
   targetDate: number;
   status: 'active' | 'completed' | 'cancelled';
-  agentPaid?: boolean; // Track if agent has been paid
-  clientRefunded?: boolean; // Track if client has been refunded
+  agentPaid?: boolean;
+  clientRefunded?: boolean;
 }
 
 // --- Constants ---
@@ -99,6 +100,9 @@ export default function TransactionsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
   
+  // Current User for Invoice
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+
   // Quick Add States
   const [addClientOpen, setAddClientOpen] = useState(false);
   const [newClientName, setNewClientName] = useState('');
@@ -141,6 +145,7 @@ export default function TransactionsPage() {
     setTransactions(loadedTxs);
     setClients(getStoredClients());
     setAgents(getStoredAgents());
+    setCurrentUser(getCurrentUser());
     updateBalancesDisplay();
   }, []);
 
@@ -189,7 +194,6 @@ export default function TransactionsPage() {
 
     setErrors(newErrors);
 
-    // Focus on first error
     if (firstErrorField && firstErrorField.current) {
         firstErrorField.current.focus();
     }
@@ -221,7 +225,7 @@ export default function TransactionsPage() {
       clientRefunded: false
     };
 
-    // --- NEW LOGIC: Add to Pending Balances ---
+    // Add to Pending Balances
     const pendingBalances = getStoredPendingBalances();
     if (pendingBalances[formData.paymentMethod] !== undefined) {
         pendingBalances[formData.paymentMethod] += clientP;
@@ -229,14 +233,12 @@ export default function TransactionsPage() {
         pendingBalances[formData.paymentMethod] = clientP;
     }
     saveStoredPendingBalances(pendingBalances);
-    // ------------------------------------------
 
     const updatedTxs = [newTx, ...transactions];
     setTransactions(updatedTxs);
     saveStoredTransactions(updatedTxs);
     setOpen(false);
     
-    // Reset Form
     setFormData({
       manualType: '',
       selectedType: '',
@@ -360,11 +362,9 @@ export default function TransactionsPage() {
 
     // Logic when cancelling a transaction
     if (newStatus === 'cancelled' && tx.status === 'active') {
-         // 1. Remove from Pending (Money goes back to client or disappears from system view)
-         if (pendingBalances[tx.paymentMethod] !== undefined) {
-            pendingBalances[tx.paymentMethod] = Math.max(0, pendingBalances[tx.paymentMethod] - clientP);
-        }
-        saveStoredPendingBalances(pendingBalances);
+         // MODIFIED: Do NOT remove from Pending Balances. 
+         // It stays in Pending until refunded to client.
+         alert("تم الغاء المعامله بنجاح..");
     }
 
     const updatedTxs = transactions.map(t => 
@@ -374,12 +374,19 @@ export default function TransactionsPage() {
     saveStoredTransactions(updatedTxs);
   };
 
+  // --- Invoice Printing Logic ---
+  const [printTx, setPrintTx] = useState<Transaction | null>(null);
+
   const handlePrint = (tx: Transaction) => {
-    window.print();
+    setPrintTx(tx);
+    // Wait for state to update then print
+    setTimeout(() => {
+        window.print();
+        setPrintTx(null);
+    }, 100);
   };
 
   const handleWhatsApp = (tx: Transaction) => {
-    // Find client to get phone number
     const client = clients.find(c => c.name === tx.clientName);
     const phoneNumber = client?.whatsapp || client?.phone;
 
@@ -393,7 +400,9 @@ export default function TransactionsPage() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto pb-20">
+    <>
+    {/* Main Application UI (Hidden during print) */}
+    <div className="max-w-5xl mx-auto pb-20 print:hidden">
       
       {/* Header & Wallet Summary */}
       <header className="mb-6">
@@ -865,7 +874,62 @@ export default function TransactionsPage() {
           </div>
         )}
       </div>
-
     </div>
+
+    {/* PRINT INVOICE TEMPLATE (Visible only when printing) */}
+    {printTx && (
+        <div className="hidden print:block fixed inset-0 bg-white z-[9999] p-8" dir="rtl">
+            <div className="border-2 border-gray-800 rounded-3xl p-8 h-full flex flex-col justify-between">
+                
+                {/* Header */}
+                <div className="text-center space-y-2">
+                    <h1 className="text-4xl font-black text-gray-900 mb-2">
+                        {currentUser?.officeName || 'مكتب الخدمات العامة'}
+                    </h1>
+                    <p className="text-xl text-gray-600 font-bold" dir="ltr">
+                        {currentUser?.phone || ''}
+                    </p>
+                    <div className="w-full h-1 bg-gray-800 my-6 rounded-full"></div>
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 flex flex-col justify-center space-y-8">
+                    <div className="text-center mb-8">
+                        <h2 className="text-3xl font-black text-blue-800 bg-blue-50 inline-block px-8 py-2 rounded-xl border border-blue-200">فاتورة معاملة</h2>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-8 text-xl">
+                        <div className="bg-gray-50 p-6 rounded-2xl border border-gray-200">
+                            <span className="block text-gray-500 text-sm font-bold mb-1">التاريخ</span>
+                            <span className="font-bold text-gray-900">{new Date(printTx.createdAt).toLocaleDateString('ar-SA')}</span>
+                        </div>
+                        <div className="bg-gray-50 p-6 rounded-2xl border border-gray-200">
+                            <span className="block text-gray-500 text-sm font-bold mb-1">رقم المعاملة</span>
+                            <span className="font-mono font-bold text-gray-900">#{printTx.serialNo}</span>
+                        </div>
+                        <div className="bg-gray-50 p-6 rounded-2xl border border-gray-200 col-span-2">
+                            <span className="block text-gray-500 text-sm font-bold mb-1">اسم العميل</span>
+                            <span className="font-bold text-gray-900">{printTx.clientName}</span>
+                        </div>
+                        <div className="bg-gray-50 p-6 rounded-2xl border border-gray-200 col-span-2">
+                            <span className="block text-gray-500 text-sm font-bold mb-1">نوع المعاملة</span>
+                            <span className="font-bold text-gray-900">{printTx.type}</span>
+                        </div>
+                        <div className="bg-blue-50 p-6 rounded-2xl border border-blue-200 col-span-2 text-center">
+                            <span className="block text-blue-600 text-sm font-bold mb-1">المبلغ الإجمالي</span>
+                            <span className="font-black text-4xl text-blue-900">{printTx.clientPrice} <span className="text-lg">ر.س</span></span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Footer */}
+                <div className="text-center mt-8 pt-8 border-t border-gray-200">
+                    <p className="text-gray-500 font-medium">شكراً لثقتكم بنا</p>
+                    <p className="text-xs text-gray-400 mt-2">تم إصدار هذه الفاتورة إلكترونياً</p>
+                </div>
+            </div>
+        </div>
+    )}
+    </>
   );
 }

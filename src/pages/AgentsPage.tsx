@@ -398,7 +398,7 @@ export default function AgentsPage() {
                                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-green-600">
                                     <CheckCircle2 className="w-6 h-6" />
                                 </div>
-                                <h3 className="font-bold text-green-800">تم التحويل بنجاح للمعقب</h3>
+                                <h3 className="font-bold text-green-800">تم التحويل للمعقب بنجاح</h3>
                             </div>
                             
                             <div className="grid grid-cols-2 gap-3">
