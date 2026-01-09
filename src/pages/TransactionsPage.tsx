@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ArrowRight, Plus, Clock, Banknote, AlertCircle, Wallet, Printer, Send } from 'lucide-react';
+import { ArrowRight, Plus, Clock, Banknote, AlertCircle, Wallet, Printer, Send, Phone, MessageCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -37,7 +37,8 @@ export interface Transaction {
   createdAt: number;
   targetDate: number;
   status: 'active' | 'completed' | 'cancelled';
-  agentPaid?: boolean; // New field to track if agent has been paid for this tx
+  agentPaid?: boolean; // Track if agent has been paid
+  clientRefunded?: boolean; // Track if client has been refunded
 }
 
 // --- Constants ---
@@ -93,11 +94,18 @@ export default function TransactionsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
   
+  // Quick Add States
   const [addClientOpen, setAddClientOpen] = useState(false);
   const [newClientName, setNewClientName] = useState('');
+  const [newClientPhone, setNewClientPhone] = useState('');
+  const [newClientWhatsapp, setNewClientWhatsapp] = useState('');
+  const [clientErrors, setClientErrors] = useState({ phone: '', whatsapp: '' });
 
   const [addAgentOpen, setAddAgentOpen] = useState(false);
   const [newAgentName, setNewAgentName] = useState('');
+  const [newAgentPhone, setNewAgentPhone] = useState('');
+  const [newAgentWhatsapp, setNewAgentWhatsapp] = useState('');
+  const [agentErrors, setAgentErrors] = useState({ phone: '', whatsapp: '' });
 
   // Form State
   const [inputTypeMode, setInputTypeMode] = useState<'manual' | 'select'>('manual');
@@ -203,7 +211,8 @@ export default function TransactionsPage() {
       createdAt: Date.now(),
       targetDate: Date.now() + (durationDays * 24 * 60 * 60 * 1000),
       status: 'active',
-      agentPaid: false
+      agentPaid: false,
+      clientRefunded: false
     };
 
     const updatedTxs = [newTx, ...transactions];
@@ -225,11 +234,35 @@ export default function TransactionsPage() {
     setErrors({});
   };
 
+  const validateSaudiNumber = (num: string) => {
+    const regex = /^5[0-9]{8}$/;
+    return regex.test(num);
+  };
+
   const handleAddClientQuick = () => {
+    let hasError = false;
+    const newErrors = { phone: '', whatsapp: '' };
+
     if(!newClientName.trim()) return;
+
+    if (newClientPhone && !validateSaudiNumber(newClientPhone)) {
+        newErrors.phone = 'يجب أن يبدأ بـ 5 ويتكون من 9 أرقام';
+        hasError = true;
+    }
+
+    if (newClientWhatsapp && !validateSaudiNumber(newClientWhatsapp)) {
+        newErrors.whatsapp = 'يجب أن يبدأ بـ 5 ويتكون من 9 أرقام';
+        hasError = true;
+    }
+
+    setClientErrors(newErrors);
+    if (hasError) return;
+
     const newClient: Client = {
       id: Date.now(),
       name: newClientName,
+      phone: newClientPhone ? `966${newClientPhone}` : '',
+      whatsapp: newClientWhatsapp ? `966${newClientWhatsapp}` : '',
       createdAt: Date.now()
     };
     const updated = [newClient, ...clients];
@@ -238,15 +271,37 @@ export default function TransactionsPage() {
     
     setFormData(prev => ({ ...prev, clientName: newClientName }));
     setNewClientName('');
+    setNewClientPhone('');
+    setNewClientWhatsapp('');
+    setClientErrors({ phone: '', whatsapp: '' });
     setAddClientOpen(false);
     setTimeout(() => durationRef.current?.focus(), 100);
   };
 
   const handleAddAgentQuick = () => {
+    let hasError = false;
+    const newErrors = { phone: '', whatsapp: '' };
+
     if(!newAgentName.trim()) return;
+
+    if (newAgentPhone && !validateSaudiNumber(newAgentPhone)) {
+        newErrors.phone = 'يجب أن يبدأ بـ 5 ويتكون من 9 أرقام';
+        hasError = true;
+    }
+
+    if (newAgentWhatsapp && !validateSaudiNumber(newAgentWhatsapp)) {
+        newErrors.whatsapp = 'يجب أن يبدأ بـ 5 ويتكون من 9 أرقام';
+        hasError = true;
+    }
+
+    setAgentErrors(newErrors);
+    if (hasError) return;
+
     const newAgent: Agent = {
       id: Date.now(),
       name: newAgentName,
+      phone: newAgentPhone ? `966${newAgentPhone}` : '',
+      whatsapp: newAgentWhatsapp ? `966${newAgentWhatsapp}` : '',
       createdAt: Date.now()
     };
     const updated = [newAgent, ...agents];
@@ -255,6 +310,9 @@ export default function TransactionsPage() {
 
     setFormData(prev => ({ ...prev, agent: newAgentName }));
     setNewAgentName('');
+    setNewAgentPhone('');
+    setNewAgentWhatsapp('');
+    setAgentErrors({ phone: '', whatsapp: '' });
     setAddAgentOpen(false);
   };
 
@@ -292,10 +350,8 @@ export default function TransactionsPage() {
     const text = `تفاصيل المعاملة:\nنوع: ${tx.type}\nالسعر: ${tx.clientPrice} ر.س\nرقم: ${tx.serialNo}\nالحالة: ${tx.status === 'completed' ? 'تم الإنجاز' : 'قيد التنفيذ'}`;
     
     if (phoneNumber) {
-        // Remove non-digits and ensure correct format if needed, assuming stored as 966...
         window.open(`https://wa.me/${phoneNumber}?text=${encodeURIComponent(text)}`, '_blank');
     } else {
-        // Fallback if no number found
         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
     }
   };
@@ -496,6 +552,40 @@ export default function TransactionsPage() {
                                     onChange={(e) => setNewAgentName(e.target.value)}
                                     className="bg-white shadow-3d-inset border-none"
                                 />
+                                <div className="space-y-1">
+                                    <div className="relative flex items-center" dir="ltr">
+                                        <div className="absolute left-3 z-10 text-gray-400 font-bold text-sm pointer-events-none">+966</div>
+                                        <Input 
+                                            value={newAgentPhone} 
+                                            onChange={(e) => {
+                                                const val = e.target.value.replace(/\D/g, '').slice(0, 9);
+                                                setNewAgentPhone(val);
+                                                if(agentErrors.phone) setAgentErrors({...agentErrors, phone: ''});
+                                            }} 
+                                            className={`bg-white shadow-3d-inset border-none pl-14 text-left ${agentErrors.phone ? 'ring-2 ring-red-400' : ''}`}
+                                            placeholder="5xxxxxxxx"
+                                        />
+                                        <Phone className="absolute right-3 w-4 h-4 text-gray-400" />
+                                    </div>
+                                    {agentErrors.phone && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {agentErrors.phone}</p>}
+                                </div>
+                                <div className="space-y-1">
+                                    <div className="relative flex items-center" dir="ltr">
+                                        <div className="absolute left-3 z-10 text-green-600 font-bold text-sm pointer-events-none">+966</div>
+                                        <Input 
+                                            value={newAgentWhatsapp} 
+                                            onChange={(e) => {
+                                                const val = e.target.value.replace(/\D/g, '').slice(0, 9);
+                                                setNewAgentWhatsapp(val);
+                                                if(agentErrors.whatsapp) setAgentErrors({...agentErrors, whatsapp: ''});
+                                            }} 
+                                            className={`bg-white shadow-3d-inset border-none pl-14 text-left ${agentErrors.whatsapp ? 'ring-2 ring-red-400' : ''}`}
+                                            placeholder="5xxxxxxxx"
+                                        />
+                                        <MessageCircle className="absolute right-3 w-4 h-4 text-green-500" />
+                                    </div>
+                                    {agentErrors.whatsapp && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {agentErrors.whatsapp}</p>}
+                                </div>
                                 <button onClick={handleAddAgentQuick} className="w-full py-3 bg-orange-500 text-white rounded-xl font-bold">حفظ وإكمال</button>
                             </div>
                         </DialogContent>
@@ -537,6 +627,40 @@ export default function TransactionsPage() {
                                     onChange={(e) => setNewClientName(e.target.value)}
                                     className="bg-white shadow-3d-inset border-none"
                                 />
+                                <div className="space-y-1">
+                                    <div className="relative flex items-center" dir="ltr">
+                                        <div className="absolute left-3 z-10 text-gray-400 font-bold text-sm pointer-events-none">+966</div>
+                                        <Input 
+                                            value={newClientPhone} 
+                                            onChange={(e) => {
+                                                const val = e.target.value.replace(/\D/g, '').slice(0, 9);
+                                                setNewClientPhone(val);
+                                                if(clientErrors.phone) setClientErrors({...clientErrors, phone: ''});
+                                            }} 
+                                            className={`bg-white shadow-3d-inset border-none pl-14 text-left ${clientErrors.phone ? 'ring-2 ring-red-400' : ''}`}
+                                            placeholder="5xxxxxxxx"
+                                        />
+                                        <Phone className="absolute right-3 w-4 h-4 text-gray-400" />
+                                    </div>
+                                    {clientErrors.phone && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {clientErrors.phone}</p>}
+                                </div>
+                                <div className="space-y-1">
+                                    <div className="relative flex items-center" dir="ltr">
+                                        <div className="absolute left-3 z-10 text-green-600 font-bold text-sm pointer-events-none">+966</div>
+                                        <Input 
+                                            value={newClientWhatsapp} 
+                                            onChange={(e) => {
+                                                const val = e.target.value.replace(/\D/g, '').slice(0, 9);
+                                                setNewClientWhatsapp(val);
+                                                if(clientErrors.whatsapp) setClientErrors({...clientErrors, whatsapp: ''});
+                                            }} 
+                                            className={`bg-white shadow-3d-inset border-none pl-14 text-left ${clientErrors.whatsapp ? 'ring-2 ring-red-400' : ''}`}
+                                            placeholder="5xxxxxxxx"
+                                        />
+                                        <MessageCircle className="absolute right-3 w-4 h-4 text-green-500" />
+                                    </div>
+                                    {clientErrors.whatsapp && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {clientErrors.whatsapp}</p>}
+                                </div>
                                 <button onClick={handleAddClientQuick} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold">حفظ وإكمال</button>
                             </div>
                         </DialogContent>

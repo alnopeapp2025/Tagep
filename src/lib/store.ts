@@ -61,6 +61,16 @@ export interface AgentTransferRecord {
   transactionCount: number;
 }
 
+// New Type for Client Refunds Report
+export interface ClientRefundRecord {
+  id: number;
+  clientName: string;
+  amount: number;
+  bank: string;
+  date: number;
+  transactionCount: number;
+}
+
 export interface AppData {
   transactions: Transaction[];
   balances: Record<string, number>;
@@ -75,6 +85,7 @@ const EXPENSES_KEY = 'moaqeb_expenses_v1';
 const EXT_AGENTS_KEY = 'moaqeb_ext_agents_v1';
 const LESSONS_KEY = 'moaqeb_lessons_v1';
 const AGENT_TRANSFERS_KEY = 'moaqeb_agent_transfers_v1';
+const CLIENT_REFUNDS_KEY = 'moaqeb_client_refunds_v1';
 
 // Transactions
 export const getStoredTransactions = (): Transaction[] => {
@@ -188,6 +199,20 @@ export const saveStoredAgentTransfers = (records: AgentTransferRecord[]) => {
   localStorage.setItem(AGENT_TRANSFERS_KEY, JSON.stringify(records));
 };
 
+// Client Refunds Records
+export const getStoredClientRefunds = (): ClientRefundRecord[] => {
+  try {
+    const stored = localStorage.getItem(CLIENT_REFUNDS_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const saveStoredClientRefunds = (records: ClientRefundRecord[]) => {
+  localStorage.setItem(CLIENT_REFUNDS_KEY, JSON.stringify(records));
+};
+
 // --- Logic Helpers ---
 export const calculateAchievers = (transactions: Transaction[]) => {
   const achievers: Record<string, { count: number; total: number }> = {};
@@ -217,6 +242,7 @@ export const createBackup = () => {
     extAgents: getStoredExtAgents(),
     lessons: getStoredLessons(),
     agentTransfers: getStoredAgentTransfers(),
+    clientRefunds: getStoredClientRefunds(),
     timestamp: Date.now()
   };
   return JSON.stringify(data);
@@ -233,6 +259,7 @@ export const restoreBackup = (jsonData: string) => {
     if (data.extAgents) saveStoredExtAgents(data.extAgents);
     if (data.lessons) saveStoredLessons(data.lessons);
     if (data.agentTransfers) saveStoredAgentTransfers(data.agentTransfers);
+    if (data.clientRefunds) saveStoredClientRefunds(data.clientRefunds);
     return true;
   } catch (e) {
     console.error("Restore failed", e);

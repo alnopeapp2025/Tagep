@@ -97,8 +97,6 @@ export default function AgentsPage() {
   const handleAgentClick = (agent: Agent) => {
     const allTxs = getStoredTransactions();
     // Filter transactions for this agent
-    // IMPORTANT: We still show unpaid completed txs, active txs, etc.
-    // Paid transactions will be hidden from the view or moved to reports
     const filtered = allTxs.filter(t => t.agent === agent.name && !t.agentPaid);
     
     setAgentTxs(filtered); 
@@ -400,8 +398,7 @@ export default function AgentsPage() {
                                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-green-600">
                                     <CheckCircle2 className="w-6 h-6" />
                                 </div>
-                                <h3 className="font-bold text-green-800">تم خصم المبلغ بنجاح</h3>
-                                <p className="text-xs text-green-600">اختفت المعاملات المدفوعة من القائمة وتم إضافتها للتقارير.</p>
+                                <h3 className="font-bold text-green-800">تم التحويل للمعقب وحذف المعامله من السجل</h3>
                             </div>
                             
                             <div className="grid grid-cols-2 gap-3">

@@ -1,10 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Users, Plus, Search, FileText, Phone, MessageCircle, AlertCircle } from 'lucide-react';
-import { getStoredClients, saveStoredClients, Client, getStoredTransactions, Transaction } from '@/lib/store';
+import { ArrowRight, Users, Plus, Search, FileText, Phone, MessageCircle, AlertCircle, Wallet, CheckCircle2, Send, X } from 'lucide-react';
+import { 
+  getStoredClients, saveStoredClients, Client, 
+  getStoredTransactions, Transaction, saveStoredTransactions,
+  getStoredBalances, saveStoredBalances, BANKS_LIST,
+  getStoredClientRefunds, saveStoredClientRefunds, ClientRefundRecord
+} from '@/lib/store';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function ClientsPage() {
   const navigate = useNavigate();
@@ -21,9 +27,30 @@ export default function ClientsPage() {
   const [clientTxs, setClientTxs] = useState<Transaction[]>([]);
   const [open, setOpen] = useState(false);
 
+  // Refund States
+  const [transferStep, setTransferStep] = useState<'summary' | 'bank-select' | 'success'>('summary');
+  const [selectedBank, setSelectedBank] = useState('');
+  const [balances, setBalances] = useState<Record<string, number>>({});
+  const [transferError, setTransferError] = useState('');
+  const [totalRefundable, setTotalRefundable] = useState(0);
+
   useEffect(() => {
     setClients(getStoredClients());
+    setBalances(getStoredBalances());
   }, []);
+
+  // Calculate Total Refundable whenever transactions change
+  useEffect(() => {
+    if (clientTxs.length > 0) {
+        // Count cancelled transactions that haven't been refunded yet
+        const total = clientTxs
+            .filter(t => t.status === 'cancelled' && !t.clientRefunded)
+            .reduce((sum, t) => sum + (parseFloat(t.clientPrice) || 0), 0);
+        setTotalRefundable(total);
+    } else {
+        setTotalRefundable(0);
+    }
+  }, [clientTxs]);
 
   const validateSaudiNumber = (num: string) => {
     // Must be 9 digits and start with 5
@@ -74,9 +101,17 @@ export default function ClientsPage() {
 
   const handleClientClick = (client: Client) => {
     const allTxs = getStoredTransactions();
-    const filtered = allTxs.filter(t => t.clientName === client.name);
+    // Filter transactions for this client, excluding refunded ones from the view if desired, 
+    // but typically we want to see them but marked as refunded. 
+    // The requirement says "remove from record", so we filter out refunded ones.
+    const filtered = allTxs.filter(t => t.clientName === client.name && !t.clientRefunded);
+    
     setClientTxs(filtered); 
     setSelectedClient(client);
+    setTransferStep('summary');
+    setTransferError('');
+    setSelectedBank('');
+    setBalances(getStoredBalances());
   };
 
   const handleWhatsAppClick = (e: React.MouseEvent, number?: string) => {
@@ -89,6 +124,61 @@ export default function ClientsPage() {
     e.stopPropagation();
     if (!number) return;
     window.location.href = `tel:+${number}`;
+  };
+
+  const handleRefundProcess = () => {
+    if (!selectedBank || !selectedClient) return;
+    
+    const currentBalance = balances[selectedBank] || 0;
+    if (currentBalance < totalRefundable) {
+        setTransferError('رصيد البنك المختار غير كافي');
+        return;
+    }
+
+    // 1. Deduct Amount from Bank
+    const newBalances = { ...balances };
+    newBalances[selectedBank] = currentBalance - totalRefundable;
+    saveStoredBalances(newBalances);
+    setBalances(newBalances);
+
+    // 2. Mark Transactions as Refunded
+    const allTxs = getStoredTransactions();
+    const refundedTxIds: number[] = [];
+    
+    const updatedTxs = allTxs.map(t => {
+        if (t.clientName === selectedClient.name && t.status === 'cancelled' && !t.clientRefunded) {
+            refundedTxIds.push(t.id);
+            return { ...t, clientRefunded: true };
+        }
+        return t;
+    });
+    saveStoredTransactions(updatedTxs);
+
+    // 3. Create Refund Record for Reports
+    const refundRecord: ClientRefundRecord = {
+        id: Date.now(),
+        clientName: selectedClient.name,
+        amount: totalRefundable,
+        bank: selectedBank,
+        date: Date.now(),
+        transactionCount: refundedTxIds.length
+    };
+    const refunds = getStoredClientRefunds();
+    saveStoredClientRefunds([refundRecord, ...refunds]);
+
+    // 4. Update Local View (Remove refunded txs)
+    setClientTxs(prev => prev.filter(t => !refundedTxIds.includes(t.id)));
+
+    // Move to success step
+    setTransferStep('success');
+  };
+
+  const sendRefundWhatsApp = () => {
+    if (!selectedClient?.whatsapp) return;
+    
+    const message = `مرحباً ${selectedClient.name}،\nتم استرجاع مبلغ المعاملات الملغاة.\nالمبلغ المسترد: ${totalRefundable} ر.س\nتم التحويل من: ${selectedBank}\nنأمل خدمتكم بشكل أفضل مستقبلاً.`;
+    
+    window.open(`https://wa.me/${selectedClient.whatsapp}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
   const filteredClients = clients.filter(c => c.name.includes(searchTerm));
@@ -227,7 +317,7 @@ export default function ClientsPage() {
                     سجل معاملات: {selectedClient?.name}
                 </DialogTitle>
             </DialogHeader>
-            <div className="py-4 space-y-3 max-h-[60vh] overflow-y-auto">
+            <div className="py-4 space-y-3 max-h-[50vh] overflow-y-auto">
                 {clientTxs.length > 0 ? clientTxs.map(tx => (
                     <div key={tx.id} className="bg-white/50 p-3 rounded-xl flex justify-between items-center border border-white">
                         <div className="flex items-center gap-3">
@@ -237,12 +327,108 @@ export default function ClientsPage() {
                                 <p className="text-xs text-gray-500">{new Date(tx.createdAt).toLocaleDateString('ar-SA')}</p>
                             </div>
                         </div>
-                        <span className="font-bold text-blue-600">{tx.clientPrice} ر.س</span>
+                        <div className="text-left">
+                            <span className={`font-bold ${tx.status === 'cancelled' ? 'text-red-600' : 'text-blue-600'}`}>
+                                {tx.clientPrice} ر.س
+                            </span>
+                            {tx.status === 'cancelled' && <p className="text-[10px] text-red-500 font-bold">ملغاة (مسترجعة)</p>}
+                        </div>
                     </div>
                 )) : (
                     <p className="text-center text-gray-500">لا توجد معاملات مسجلة لهذا العميل.</p>
                 )}
             </div>
+
+            {/* Refund Section */}
+            {clientTxs.length > 0 && totalRefundable > 0 && (
+                <div className="mt-2 pt-4 border-t border-gray-200">
+                    
+                    {/* Step 1: Summary & Refund Button */}
+                    {transferStep === 'summary' && (
+                        <div className="flex items-center justify-between bg-white p-4 rounded-xl shadow-3d-inset">
+                            <div>
+                                <p className="text-xs text-gray-500 font-bold mb-1">إجمالي المسترجع (ملغاة)</p>
+                                <p className="text-2xl font-black text-red-600">{totalRefundable.toLocaleString()} ر.س</p>
+                            </div>
+                            <button 
+                                onClick={() => setTransferStep('bank-select')}
+                                className="flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-xl font-bold shadow-lg hover:bg-red-700 transition-all"
+                            >
+                                <Wallet className="w-4 h-4" />
+                                تحويل للعميل
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Step 2: Bank Selection */}
+                    {transferStep === 'bank-select' && (
+                        <div className="bg-white p-4 rounded-xl shadow-3d-inset space-y-3 animate-in fade-in slide-in-from-bottom-2">
+                            <div className="flex justify-between items-center mb-2">
+                                <Label className="font-bold text-gray-700">اختر البنك للخصم (الاسترجاع)</Label>
+                                <button onClick={() => setTransferStep('summary')} className="text-xs text-red-500 font-bold">إلغاء</button>
+                            </div>
+                            
+                            <Select onValueChange={(val) => { setSelectedBank(val); setTransferError(''); }} value={selectedBank}>
+                                <SelectTrigger className="bg-[#eef2f6] border-none h-12 text-right flex-row-reverse">
+                                    <SelectValue placeholder="اختر البنك" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">
+                                    {BANKS_LIST.map((bank) => (
+                                        <SelectItem key={bank} value={bank} className="text-right cursor-pointer my-1">
+                                            <div className="flex justify-between w-full gap-4">
+                                                <span>{bank}</span>
+                                                <span className={`font-bold ${(balances[bank] || 0) >= totalRefundable ? 'text-green-600' : 'text-red-500'}`}>
+                                                    {(balances[bank] || 0).toLocaleString()} ر.س
+                                                </span>
+                                            </div>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+
+                            {transferError && <p className="text-red-500 text-xs font-bold">{transferError}</p>}
+
+                            <button 
+                                onClick={handleRefundProcess}
+                                className="w-full py-3 bg-green-600 text-white rounded-xl font-bold shadow-lg hover:bg-green-700 transition-all mt-2"
+                            >
+                                تأكيد الاسترجاع ({totalRefundable} ر.س)
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Step 3: Success & WhatsApp */}
+                    {transferStep === 'success' && (
+                        <div className="bg-green-50 border border-green-200 p-4 rounded-xl text-center space-y-4 animate-in zoom-in">
+                            <div className="flex flex-col items-center gap-2">
+                                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-green-600">
+                                    <CheckCircle2 className="w-6 h-6" />
+                                </div>
+                                <h3 className="font-bold text-green-800">تم ارجاع المبلغ للعميل وحذف المعامله من السجل</h3>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-3">
+                                <button 
+                                    onClick={sendRefundWhatsApp}
+                                    className="flex items-center justify-center gap-2 py-3 bg-green-600 text-white rounded-xl font-bold shadow-lg hover:bg-green-700"
+                                >
+                                    <Send className="w-4 h-4" />
+                                    إرسال المبلغ للعميل
+                                </button>
+                                <button 
+                                    onClick={() => setSelectedClient(null)}
+                                    className="flex items-center justify-center gap-2 py-3 bg-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-300"
+                                >
+                                    <X className="w-4 h-4" />
+                                    خروج
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                </div>
+            )}
+
         </DialogContent>
       </Dialog>
     </div>
