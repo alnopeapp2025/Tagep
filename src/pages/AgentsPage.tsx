@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, UserCheck, Plus, Search, FileText, Phone, MessageCircle, AlertCircle } from 'lucide-react';
-import { getStoredAgents, saveStoredAgents, Agent, getStoredTransactions, Transaction } from '@/lib/store';
+import { ArrowRight, UserCheck, Plus, Search, FileText, Phone, MessageCircle, AlertCircle, Wallet, CheckCircle2, Send, X } from 'lucide-react';
+import { getStoredAgents, saveStoredAgents, Agent, getStoredTransactions, Transaction, getStoredBalances, saveStoredBalances, BANKS_LIST } from '@/lib/store';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function AgentsPage() {
   const navigate = useNavigate();
@@ -21,9 +22,29 @@ export default function AgentsPage() {
   const [agentTxs, setAgentTxs] = useState<Transaction[]>([]);
   const [open, setOpen] = useState(false);
 
+  // Transfer States
+  const [transferStep, setTransferStep] = useState<'summary' | 'bank-select' | 'success'>('summary');
+  const [selectedBank, setSelectedBank] = useState('');
+  const [balances, setBalances] = useState<Record<string, number>>({});
+  const [transferError, setTransferError] = useState('');
+  const [totalDue, setTotalDue] = useState(0);
+
   useEffect(() => {
     setAgents(getStoredAgents());
+    setBalances(getStoredBalances());
   }, []);
+
+  // Calculate Total Due whenever transactions change
+  useEffect(() => {
+    if (agentTxs.length > 0) {
+        const total = agentTxs
+            .filter(t => t.status === 'completed')
+            .reduce((sum, t) => sum + (parseFloat(t.agentPrice) || 0), 0);
+        setTotalDue(total);
+    } else {
+        setTotalDue(0);
+    }
+  }, [agentTxs]);
 
   const validateSaudiNumber = (num: string) => {
     const regex = /^5[0-9]{8}$/;
@@ -72,6 +93,11 @@ export default function AgentsPage() {
     const filtered = allTxs.filter(t => t.agent === agent.name);
     setAgentTxs(filtered); 
     setSelectedAgent(agent);
+    setTransferStep('summary'); // Reset transfer step
+    setTransferError('');
+    setSelectedBank('');
+    // Refresh balances
+    setBalances(getStoredBalances());
   };
 
   const handleWhatsAppClick = (e: React.MouseEvent, number?: string) => {
@@ -84,6 +110,33 @@ export default function AgentsPage() {
     e.stopPropagation();
     if (!number) return;
     window.location.href = `tel:+${number}`;
+  };
+
+  const handleTransferProcess = () => {
+    if (!selectedBank) return;
+    
+    const currentBalance = balances[selectedBank] || 0;
+    if (currentBalance < totalDue) {
+        setTransferError('رصيد البنك المختار غير كافي');
+        return;
+    }
+
+    // Deduct Amount
+    const newBalances = { ...balances };
+    newBalances[selectedBank] = currentBalance - totalDue;
+    saveStoredBalances(newBalances);
+    setBalances(newBalances);
+
+    // Move to success step
+    setTransferStep('success');
+  };
+
+  const sendTransferWhatsApp = () => {
+    if (!selectedAgent?.whatsapp) return;
+    
+    const message = `مرحباً ${selectedAgent.name}،\nتم تحويل مبلغ مستحقات المعاملات المنجزة.\nالمبلغ: ${totalDue} ر.س\nتم الخصم من: ${selectedBank}\nشكراً لجهودك.`;
+    
+    window.open(`https://wa.me/${selectedAgent.whatsapp}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
   const filteredAgents = agents.filter(a => a.name.includes(searchTerm));
@@ -221,7 +274,8 @@ export default function AgentsPage() {
                     معاملات المعقب: {selectedAgent?.name}
                 </DialogTitle>
             </DialogHeader>
-            <div className="py-4 space-y-3 max-h-[60vh] overflow-y-auto">
+            
+            <div className="py-4 space-y-3 max-h-[50vh] overflow-y-auto">
                 {agentTxs.length > 0 ? agentTxs.map(tx => (
                     <div key={tx.id} className="bg-white/50 p-3 rounded-xl flex justify-between items-center border border-white">
                         <div className="flex items-center gap-3">
@@ -242,6 +296,99 @@ export default function AgentsPage() {
                     <p className="text-center text-gray-500">لا توجد معاملات مسجلة لهذا المعقب.</p>
                 )}
             </div>
+
+            {/* Footer Section: Total & Transfer */}
+            {agentTxs.length > 0 && (
+                <div className="mt-2 pt-4 border-t border-gray-200">
+                    
+                    {/* Step 1: Summary & Transfer Button */}
+                    {transferStep === 'summary' && (
+                        <div className="flex items-center justify-between bg-white p-4 rounded-xl shadow-3d-inset">
+                            <div>
+                                <p className="text-xs text-gray-500 font-bold mb-1">إجمالي المستحق (مكتمل)</p>
+                                <p className="text-2xl font-black text-blue-600">{totalDue.toLocaleString()} ر.س</p>
+                            </div>
+                            {totalDue > 0 && (
+                                <button 
+                                    onClick={() => setTransferStep('bank-select')}
+                                    className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-all"
+                                >
+                                    <Wallet className="w-4 h-4" />
+                                    تحويل للمعقب
+                                </button>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Step 2: Bank Selection */}
+                    {transferStep === 'bank-select' && (
+                        <div className="bg-white p-4 rounded-xl shadow-3d-inset space-y-3 animate-in fade-in slide-in-from-bottom-2">
+                            <div className="flex justify-between items-center mb-2">
+                                <Label className="font-bold text-gray-700">اختر البنك للخصم</Label>
+                                <button onClick={() => setTransferStep('summary')} className="text-xs text-red-500 font-bold">إلغاء</button>
+                            </div>
+                            
+                            <Select onValueChange={(val) => { setSelectedBank(val); setTransferError(''); }} value={selectedBank}>
+                                <SelectTrigger className="bg-[#eef2f6] border-none h-12 text-right flex-row-reverse">
+                                    <SelectValue placeholder="اختر البنك" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">
+                                    {BANKS_LIST.map((bank) => (
+                                        <SelectItem key={bank} value={bank} className="text-right cursor-pointer my-1">
+                                            <div className="flex justify-between w-full gap-4">
+                                                <span>{bank}</span>
+                                                <span className={`font-bold ${(balances[bank] || 0) >= totalDue ? 'text-green-600' : 'text-red-500'}`}>
+                                                    {(balances[bank] || 0).toLocaleString()} ر.س
+                                                </span>
+                                            </div>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+
+                            {transferError && <p className="text-red-500 text-xs font-bold">{transferError}</p>}
+
+                            <button 
+                                onClick={handleTransferProcess}
+                                className="w-full py-3 bg-green-600 text-white rounded-xl font-bold shadow-lg hover:bg-green-700 transition-all mt-2"
+                            >
+                                تأكيد الخصم ({totalDue} ر.س)
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Step 3: Success & WhatsApp */}
+                    {transferStep === 'success' && (
+                        <div className="bg-green-50 border border-green-200 p-4 rounded-xl text-center space-y-4 animate-in zoom-in">
+                            <div className="flex flex-col items-center gap-2">
+                                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-green-600">
+                                    <CheckCircle2 className="w-6 h-6" />
+                                </div>
+                                <h3 className="font-bold text-green-800">تم خصم المبلغ بنجاح</h3>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-3">
+                                <button 
+                                    onClick={sendTransferWhatsApp}
+                                    className="flex items-center justify-center gap-2 py-3 bg-green-600 text-white rounded-xl font-bold shadow-lg hover:bg-green-700"
+                                >
+                                    <Send className="w-4 h-4" />
+                                    إرسال المبلغ للمعقب
+                                </button>
+                                <button 
+                                    onClick={() => setSelectedAgent(null)}
+                                    className="flex items-center justify-center gap-2 py-3 bg-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-300"
+                                >
+                                    <X className="w-4 h-4" />
+                                    خروج
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                </div>
+            )}
+
         </DialogContent>
       </Dialog>
     </div>
