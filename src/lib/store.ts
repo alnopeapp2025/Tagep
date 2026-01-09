@@ -185,6 +185,49 @@ export const loginUser = async (phone: string, password: string) => {
   }
 };
 
+// --- Password Recovery Functions ---
+
+export const verifySecurityInfo = async (phone: string, question: string, answer: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('id')
+      .eq('phone', phone)
+      .eq('security_question', question)
+      .eq('security_answer', answer)
+      .single();
+
+    if (error || !data) {
+      return { success: false, message: 'البيانات غير متطابقة' };
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error('Verification error:', err);
+    return { success: false, message: 'حدث خطأ أثناء التحقق' };
+  }
+};
+
+export const resetPassword = async (phone: string, newPassword: string) => {
+  try {
+    const passwordHash = hashPassword(newPassword);
+
+    const { error } = await supabase
+      .from('users')
+      .update({ password_hash: passwordHash })
+      .eq('phone', phone);
+
+    if (error) {
+      return { success: false, message: 'فشل تحديث كلمة المرور' };
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error('Reset password error:', err);
+    return { success: false, message: 'حدث خطأ أثناء التحديث' };
+  }
+};
+
 export const getCurrentUser = (): User | null => {
   try {
     const stored = localStorage.getItem(CURRENT_USER_KEY);

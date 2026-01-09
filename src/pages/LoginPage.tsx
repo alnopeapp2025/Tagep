@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Phone, Lock, LogIn, UserPlus, HelpCircle, AlertCircle, RefreshCw, CheckCircle2, Loader2 } from 'lucide-react';
+import { Phone, Lock, LogIn, UserPlus, HelpCircle, AlertCircle, RefreshCw, CheckCircle2, Loader2, Check } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { loginUser } from '@/lib/store';
+import { loginUser, verifySecurityInfo, resetPassword } from '@/lib/store';
 
 const securityQuestions = [
   "اين ولدت والدتك؟",
@@ -44,6 +44,20 @@ export default function LoginPage() {
 
   // Forgot Password State
   const [forgotOpen, setForgotOpen] = useState(false);
+  const [recoveryStep, setRecoveryStep] = useState<'verify' | 'reset'>('verify');
+  
+  // Recovery Fields
+  const [recPhone, setRecPhone] = useState('');
+  const [recQuestion, setRecQuestion] = useState('');
+  const [recAnswer, setRecAnswer] = useState('');
+  
+  // Reset Fields
+  const [newPass, setNewPass] = useState('');
+  const [confirmPass, setConfirmPass] = useState('');
+  
+  const [recError, setRecError] = useState('');
+  const [recLoading, setRecLoading] = useState(false);
+  const [recSuccess, setRecSuccess] = useState(false);
 
   // Auto-fill from Registration
   useEffect(() => {
@@ -61,6 +75,20 @@ export default function LoginPage() {
         }
     }
   }, [location]);
+
+  // Reset Recovery State when Dialog Closes
+  useEffect(() => {
+    if (!forgotOpen) {
+        setRecoveryStep('verify');
+        setRecPhone('');
+        setRecQuestion('');
+        setRecAnswer('');
+        setNewPass('');
+        setConfirmPass('');
+        setRecError('');
+        setRecSuccess(false);
+    }
+  }, [forgotOpen]);
 
   const handleLogin = async () => {
     setError('');
@@ -90,6 +118,58 @@ export default function LoginPage() {
         setError('حدث خطأ غير متوقع');
     } finally {
         setLoading(false);
+    }
+  };
+
+  const handleVerifySecurity = async () => {
+    setRecError('');
+    if (!recPhone || !recQuestion || !recAnswer) {
+        setRecError('يرجى ملء جميع حقول التحقق');
+        return;
+    }
+
+    setRecLoading(true);
+    try {
+        const result = await verifySecurityInfo(recPhone, recQuestion, recAnswer);
+        if (result.success) {
+            setRecoveryStep('reset');
+        } else {
+            setRecError(result.message || 'البيانات غير صحيحة');
+        }
+    } catch (err) {
+        setRecError('حدث خطأ أثناء التحقق');
+    } finally {
+        setRecLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    setRecError('');
+    if (!newPass || !confirmPass) {
+        setRecError('يرجى إدخال كلمة المرور الجديدة');
+        return;
+    }
+
+    if (newPass !== confirmPass) {
+        setRecError('كلمتا المرور غير متطابقتين');
+        return;
+    }
+
+    setRecLoading(true);
+    try {
+        const result = await resetPassword(recPhone, newPass);
+        if (result.success) {
+            setRecSuccess(true);
+            setTimeout(() => {
+                setForgotOpen(false);
+            }, 2000);
+        } else {
+            setRecError(result.message || 'فشل التحديث');
+        }
+    } catch (err) {
+        setRecError('حدث خطأ أثناء التحديث');
+    } finally {
+        setRecLoading(false);
     }
   };
 
@@ -187,33 +267,105 @@ export default function LoginPage() {
                     <DialogHeader>
                         <DialogTitle className="text-center font-bold text-gray-800">استعادة كلمة المرور</DialogTitle>
                     </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                            <Label>رقم الهاتف</Label>
-                            <Input className="bg-white shadow-3d-inset border-none" placeholder="05xxxxxxxx" />
+                    
+                    {recSuccess ? (
+                        <div className="py-8 flex flex-col items-center justify-center animate-in zoom-in">
+                            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center text-green-600 mb-4 shadow-3d">
+                                <Check className="w-8 h-8" strokeWidth={3} />
+                            </div>
+                            <h3 className="text-lg font-bold text-green-700">تم تحديث كلمة المرور بنجاح</h3>
                         </div>
-                        <div className="space-y-2">
-                            <Label>سؤال الأمان</Label>
-                            <Select>
-                                <SelectTrigger className="bg-white shadow-3d-inset border-none h-10 text-right flex-row-reverse">
-                                    <SelectValue placeholder="اختر السؤال..." />
-                                </SelectTrigger>
-                                <SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">
-                                    {securityQuestions.map((q) => (
-                                    <SelectItem key={q} value={q} className="text-right cursor-pointer my-1">{q}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                    ) : (
+                        <div className="space-y-4 py-4">
+                            {recError && (
+                                <div className="bg-red-50 text-red-600 p-3 rounded-xl text-xs font-bold flex items-center gap-2 border border-red-100 shadow-sm animate-in fade-in">
+                                    <AlertCircle className="w-4 h-4" />
+                                    {recError}
+                                </div>
+                            )}
+
+                            {recoveryStep === 'verify' ? (
+                                <div className="space-y-4 animate-in slide-in-from-right-2">
+                                    <div className="space-y-2">
+                                        <Label>رقم الهاتف</Label>
+                                        <Input 
+                                            value={recPhone}
+                                            onChange={(e) => setRecPhone(e.target.value)}
+                                            className="bg-white shadow-3d-inset border-none" 
+                                            placeholder="05xxxxxxxx" 
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>سؤال الأمان</Label>
+                                        <Select value={recQuestion} onValueChange={setRecQuestion}>
+                                            <SelectTrigger className="bg-white shadow-3d-inset border-none h-10 text-right flex-row-reverse">
+                                                <SelectValue placeholder="اختر السؤال..." />
+                                            </SelectTrigger>
+                                            <SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">
+                                                {securityQuestions.map((q) => (
+                                                <SelectItem key={q} value={q} className="text-right cursor-pointer my-1">{q}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>الإجابة</Label>
+                                        <Input 
+                                            value={recAnswer}
+                                            onChange={(e) => setRecAnswer(e.target.value)}
+                                            className="bg-white shadow-3d-inset border-none" 
+                                            placeholder="إجابتك..." 
+                                        />
+                                    </div>
+                                    <button 
+                                        onClick={handleVerifySecurity}
+                                        disabled={recLoading}
+                                        className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 disabled:opacity-70"
+                                    >
+                                        {recLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                                        تحقق
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="space-y-4 animate-in slide-in-from-left-2">
+                                    <div className="space-y-2">
+                                        <Label>كلمة المرور الجديدة</Label>
+                                        <div className="relative">
+                                            <Input 
+                                                type="password"
+                                                value={newPass}
+                                                onChange={(e) => setNewPass(e.target.value)}
+                                                className="bg-white shadow-3d-inset border-none pl-10" 
+                                                placeholder="••••••••" 
+                                            />
+                                            <Lock className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>تأكيد كلمة المرور</Label>
+                                        <div className="relative">
+                                            <Input 
+                                                type="password"
+                                                value={confirmPass}
+                                                onChange={(e) => setConfirmPass(e.target.value)}
+                                                className="bg-white shadow-3d-inset border-none pl-10" 
+                                                placeholder="••••••••" 
+                                            />
+                                            <Lock className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                                        </div>
+                                    </div>
+                                    <button 
+                                        onClick={handleResetPassword}
+                                        disabled={recLoading}
+                                        className="w-full py-3 bg-green-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 disabled:opacity-70"
+                                    >
+                                        {recLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                                        تحديث
+                                    </button>
+                                </div>
+                            )}
                         </div>
-                        <div className="space-y-2">
-                            <Label>الإجابة</Label>
-                            <Input className="bg-white shadow-3d-inset border-none" placeholder="إجابتك..." />
-                        </div>
-                        <button onClick={() => { alert('تم إرسال كلمة المرور المؤقتة'); setForgotOpen(false); }} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2">
-                            <RefreshCw className="w-4 h-4" />
-                            إستعادة
-                        </button>
-                    </div>
+                    )}
                 </DialogContent>
             </Dialog>
           </div>
