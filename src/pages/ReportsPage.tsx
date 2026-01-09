@@ -85,21 +85,21 @@ export default function ReportsPage() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const StatCard = ({ title, value, icon: Icon, colorClass, valueColorClass, subText }: any) => (
-    <div className="bg-[#eef2f6] rounded-2xl shadow-3d p-4 flex items-center gap-3 border border-white/50">
-      <div className={`w-10 h-10 rounded-xl shadow-3d-inset flex items-center justify-center ${colorClass}`}>
-        <Icon className="w-5 h-5" />
+    <div className="bg-[#eef2f6] rounded-2xl shadow-3d p-3 flex items-center gap-2 border border-white/50">
+      <div className={`w-8 h-8 rounded-xl shadow-3d-inset flex items-center justify-center ${colorClass}`}>
+        <Icon className="w-4 h-4" />
       </div>
       <div>
-        <p className="text-gray-500 text-[10px] font-bold mb-0.5">{title}</p>
-        <h3 className={`text-lg font-black ${valueColorClass || 'text-gray-800'}`}>{value}</h3>
-        {subText && <p className="text-[9px] text-gray-400">{subText}</p>}
+        <p className="text-gray-500 text-[9px] font-bold mb-0.5">{title}</p>
+        <h3 className={`text-base font-black ${valueColorClass || 'text-gray-800'}`}>{value}</h3>
+        {subText && <p className="text-[8px] text-gray-400">{subText}</p>}
       </div>
     </div>
   );
 
   return (
     <div className="max-w-6xl mx-auto pb-20">
-      <header className="mb-6 flex items-center gap-4">
+      <header className="mb-4 flex items-center gap-4">
         <button 
           onClick={() => navigate('/')}
           className="p-3 rounded-full bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active text-gray-600 transition-all"
@@ -107,13 +107,13 @@ export default function ReportsPage() {
           <ArrowRight className="w-6 h-6" />
         </button>
         <div>
-          <h1 className="text-3xl font-black text-gray-800 text-shadow">التقارير والإحصائيات</h1>
-          <p className="text-gray-500">نظرة شاملة على أداء المكتب</p>
+          <h1 className="text-2xl font-black text-gray-800 text-shadow">التقارير والإحصائيات</h1>
+          <p className="text-gray-500 text-sm">نظرة شاملة على أداء المكتب</p>
         </div>
       </header>
 
-      <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 mb-6 bg-[#eef2f6] shadow-3d-inset rounded-xl p-1">
+      <Tabs defaultValue="general" className="w-full" dir="rtl">
+        <TabsList className="grid w-full grid-cols-3 mb-4 bg-[#eef2f6] shadow-3d-inset rounded-xl p-1">
             <TabsTrigger value="general" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">عام</TabsTrigger>
             <TabsTrigger value="agent-transfers" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">تحويلات المعقبين</TabsTrigger>
             <TabsTrigger value="refunds" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">مسترجعات العملاء</TabsTrigger>
@@ -121,7 +121,7 @@ export default function ReportsPage() {
 
         <TabsContent value="general">
             {/* Compact Grid Gap */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 mb-3">
                 <StatCard 
                     title="معاملات اليوم" 
                     value={stats.todayCount} 
@@ -149,7 +149,7 @@ export default function ReportsPage() {
                 />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
                 <StatCard 
                     title="تم الإنجاز" 
                     value={stats.completedCount} 
@@ -173,39 +173,39 @@ export default function ReportsPage() {
                 />
             </div>
 
-            <h3 className="text-xl font-bold text-gray-700 mb-4 mt-6">القيم المالية</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-blue-600 text-white rounded-3xl shadow-3d p-5 text-center">
-                    <p className="opacity-80 mb-2 font-medium text-xs">قيمة معاملات الأسبوع</p>
-                    <h2 className="text-2xl font-black">{stats.weekValue.toLocaleString()} ر.س</h2>
+            <h3 className="text-lg font-bold text-gray-700 mb-3 mt-4">القيم المالية</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="bg-blue-600 text-white rounded-2xl shadow-3d p-4 text-center">
+                    <p className="opacity-80 mb-1 font-medium text-[10px]">قيمة معاملات الأسبوع</p>
+                    <h2 className="text-xl font-black">{stats.weekValue.toLocaleString()} ر.س</h2>
                 </div>
-                <div className="bg-indigo-600 text-white rounded-3xl shadow-3d p-5 text-center">
-                    <p className="opacity-80 mb-2 font-medium text-xs">قيمة معاملات الشهر</p>
-                    <h2 className="text-2xl font-black">{stats.monthValue.toLocaleString()} ر.س</h2>
+                <div className="bg-indigo-600 text-white rounded-2xl shadow-3d p-4 text-center">
+                    <p className="opacity-80 mb-1 font-medium text-[10px]">قيمة معاملات الشهر</p>
+                    <h2 className="text-xl font-black">{stats.monthValue.toLocaleString()} ر.س</h2>
                 </div>
-                <div className="bg-gray-800 text-white rounded-3xl shadow-3d p-5 text-center">
-                    <p className="opacity-80 mb-2 font-medium text-xs">قيمة كل المعاملات</p>
-                    <h2 className="text-2xl font-black">{stats.totalValue.toLocaleString()} ر.س</h2>
+                <div className="bg-gray-800 text-white rounded-2xl shadow-3d p-4 text-center">
+                    <p className="opacity-80 mb-1 font-medium text-[10px]">قيمة كل المعاملات</p>
+                    <h2 className="text-xl font-black">{stats.totalValue.toLocaleString()} ر.س</h2>
                 </div>
             </div>
         </TabsContent>
 
         <TabsContent value="agent-transfers">
-            <div className="space-y-4">
+            <div className="space-y-3">
                 {agentTransfers.length === 0 ? (
-                    <div className="text-center py-10 text-gray-500 bg-[#eef2f6] rounded-2xl shadow-3d-inset">
+                    <div className="text-center py-8 text-gray-500 bg-[#eef2f6] rounded-2xl shadow-3d-inset text-sm">
                         لا توجد تحويلات مسجلة للمعقبين بعد.
                     </div>
                 ) : (
                     agentTransfers.map(record => (
-                        <div key={record.id} className="bg-[#eef2f6] p-4 rounded-2xl shadow-3d flex justify-between items-center border border-white/50">
-                            <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 shadow-sm">
-                                    <ArrowUpRight className="w-5 h-5" />
+                        <div key={record.id} className="bg-[#eef2f6] p-3 rounded-2xl shadow-3d flex justify-between items-center border border-white/50">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 shadow-sm">
+                                    <ArrowUpRight className="w-4 h-4" />
                                 </div>
                                 <div>
-                                    <h3 className="font-bold text-gray-800">{record.agentName}</h3>
-                                    <div className="flex gap-2 text-xs text-gray-400 mt-1">
+                                    <h3 className="font-bold text-gray-800 text-sm">{record.agentName}</h3>
+                                    <div className="flex gap-2 text-[10px] text-gray-400 mt-0.5">
                                         <span>{new Date(record.date).toLocaleDateString('ar-SA')}</span>
                                         <span>•</span>
                                         <span>{record.transactionCount} معاملة</span>
@@ -214,7 +214,7 @@ export default function ReportsPage() {
                                     </div>
                                 </div>
                             </div>
-                            <span className="font-bold text-blue-600 text-lg">{record.amount.toLocaleString()} ر.س</span>
+                            <span className="font-bold text-blue-600 text-base">{record.amount.toLocaleString()} ر.س</span>
                         </div>
                     ))
                 )}
@@ -222,21 +222,21 @@ export default function ReportsPage() {
         </TabsContent>
 
         <TabsContent value="refunds">
-            <div className="space-y-4">
+            <div className="space-y-3">
                 {refunds.length === 0 ? (
-                    <div className="text-center py-10 text-gray-500 bg-[#eef2f6] rounded-2xl shadow-3d-inset">
+                    <div className="text-center py-8 text-gray-500 bg-[#eef2f6] rounded-2xl shadow-3d-inset text-sm">
                         لا توجد مسترجعات (معاملات ملغاة) حالياً.
                     </div>
                 ) : (
                     refunds.map(tx => (
-                        <div key={tx.id} className="bg-[#eef2f6] p-4 rounded-2xl shadow-3d flex justify-between items-center border border-white/50 opacity-75">
-                            <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center text-red-600 shadow-sm">
-                                    <ArrowDownLeft className="w-5 h-5" />
+                        <div key={tx.id} className="bg-[#eef2f6] p-3 rounded-2xl shadow-3d flex justify-between items-center border border-white/50 opacity-75">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center text-red-600 shadow-sm">
+                                    <ArrowDownLeft className="w-4 h-4" />
                                 </div>
                                 <div>
-                                    <h3 className="font-bold text-gray-800">{tx.clientName || 'عميل عام'}</h3>
-                                    <div className="flex gap-2 text-xs text-gray-400 mt-1">
+                                    <h3 className="font-bold text-gray-800 text-sm">{tx.clientName || 'عميل عام'}</h3>
+                                    <div className="flex gap-2 text-[10px] text-gray-400 mt-0.5">
                                         <span>{new Date(tx.createdAt).toLocaleDateString('ar-SA')}</span>
                                         <span>•</span>
                                         <span>{tx.type}</span>
@@ -245,7 +245,7 @@ export default function ReportsPage() {
                                     </div>
                                 </div>
                             </div>
-                            <span className="font-bold text-red-600 text-lg">{tx.clientPrice} ر.س</span>
+                            <span className="font-bold text-red-600 text-base">{tx.clientPrice} ر.س</span>
                         </div>
                     ))
                 )}

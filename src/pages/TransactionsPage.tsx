@@ -628,17 +628,17 @@ export default function TransactionsPage() {
                         <CardContent className="p-0">
                         <div className="flex flex-col">
                             
-                            {/* Top Row: Info (One Line) */}
-                            <div className="flex items-center justify-between p-4 bg-white/40 border-b border-white/50">
+                            {/* Top Row: Info (One Line) - Yellow Background */}
+                            <div className="flex items-center justify-between p-4 bg-yellow-200 border-b border-yellow-300">
                                 <div className="flex items-center gap-2 sm:gap-4 overflow-hidden">
-                                    <span className="font-mono font-bold text-gray-400 text-sm">#{tx.serialNo}</span>
-                                    <span className="h-4 w-[1px] bg-gray-300"></span>
-                                    {/* Yellow/Orange Background for Type */}
-                                    <span className="font-bold text-gray-800 text-sm truncate bg-orange-100/60 px-2 py-0.5 rounded-md border border-orange-200/50">
+                                    <span className="font-mono font-bold text-yellow-800 text-sm">#{tx.serialNo}</span>
+                                    <span className="h-4 w-[1px] bg-yellow-400"></span>
+                                    {/* Type */}
+                                    <span className="font-bold text-gray-800 text-sm truncate">
                                         {tx.type}
                                     </span>
-                                    <span className="h-4 w-[1px] bg-gray-300"></span>
-                                    <span className="font-bold text-blue-600 text-sm whitespace-nowrap">{tx.clientPrice} ر.س</span>
+                                    <span className="h-4 w-[1px] bg-yellow-400"></span>
+                                    <span className="font-bold text-blue-700 text-sm whitespace-nowrap">{tx.clientPrice} ر.س</span>
                                 </div>
                                 <div className={cn(
                                     "w-2 h-2 rounded-full",
@@ -647,7 +647,7 @@ export default function TransactionsPage() {
                                 )} />
                             </div>
 
-                            {/* Middle: Timer */}
+                            {/* Middle: Timer & Status (Outside Yellow Block) */}
                             <div className="p-4 flex items-center justify-between gap-4">
                                 <div className="w-full bg-[#eef2f6] shadow-3d-inset rounded-xl p-3 text-center flex-1">
                                     <CountdownTimer targetDate={tx.targetDate} status={tx.status} />
