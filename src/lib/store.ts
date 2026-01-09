@@ -32,7 +32,7 @@ export interface Expense {
   id: number;
   title: string;
   amount: number;
-  bank: string; // Added bank field
+  bank: string;
   date: number;
 }
 
@@ -51,6 +51,16 @@ export interface Lesson {
   createdAt: number;
 }
 
+// New Type for Agent Transfers Report
+export interface AgentTransferRecord {
+  id: number;
+  agentName: string;
+  amount: number;
+  bank: string;
+  date: number;
+  transactionCount: number;
+}
+
 export interface AppData {
   transactions: Transaction[];
   balances: Record<string, number>;
@@ -64,6 +74,7 @@ const AGENTS_KEY = 'moaqeb_agents_v1';
 const EXPENSES_KEY = 'moaqeb_expenses_v1';
 const EXT_AGENTS_KEY = 'moaqeb_ext_agents_v1';
 const LESSONS_KEY = 'moaqeb_lessons_v1';
+const AGENT_TRANSFERS_KEY = 'moaqeb_agent_transfers_v1';
 
 // Transactions
 export const getStoredTransactions = (): Transaction[] => {
@@ -163,6 +174,20 @@ export const saveStoredLessons = (lessons: Lesson[]) => {
   localStorage.setItem(LESSONS_KEY, JSON.stringify(lessons));
 };
 
+// Agent Transfers Records
+export const getStoredAgentTransfers = (): AgentTransferRecord[] => {
+  try {
+    const stored = localStorage.getItem(AGENT_TRANSFERS_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const saveStoredAgentTransfers = (records: AgentTransferRecord[]) => {
+  localStorage.setItem(AGENT_TRANSFERS_KEY, JSON.stringify(records));
+};
+
 // --- Logic Helpers ---
 export const calculateAchievers = (transactions: Transaction[]) => {
   const achievers: Record<string, { count: number; total: number }> = {};
@@ -191,6 +216,7 @@ export const createBackup = () => {
     expenses: getStoredExpenses(),
     extAgents: getStoredExtAgents(),
     lessons: getStoredLessons(),
+    agentTransfers: getStoredAgentTransfers(),
     timestamp: Date.now()
   };
   return JSON.stringify(data);
@@ -206,6 +232,7 @@ export const restoreBackup = (jsonData: string) => {
     if (data.expenses) saveStoredExpenses(data.expenses);
     if (data.extAgents) saveStoredExtAgents(data.extAgents);
     if (data.lessons) saveStoredLessons(data.lessons);
+    if (data.agentTransfers) saveStoredAgentTransfers(data.agentTransfers);
     return true;
   } catch (e) {
     console.error("Restore failed", e);

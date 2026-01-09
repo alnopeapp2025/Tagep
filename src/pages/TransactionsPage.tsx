@@ -37,6 +37,7 @@ export interface Transaction {
   createdAt: number;
   targetDate: number;
   status: 'active' | 'completed' | 'cancelled';
+  agentPaid?: boolean; // New field to track if agent has been paid for this tx
 }
 
 // --- Constants ---
@@ -201,7 +202,8 @@ export default function TransactionsPage() {
       paymentMethod: formData.paymentMethod,
       createdAt: Date.now(),
       targetDate: Date.now() + (durationDays * 24 * 60 * 60 * 1000),
-      status: 'active'
+      status: 'active',
+      agentPaid: false
     };
 
     const updatedTxs = [newTx, ...transactions];
@@ -237,7 +239,6 @@ export default function TransactionsPage() {
     setFormData(prev => ({ ...prev, clientName: newClientName }));
     setNewClientName('');
     setAddClientOpen(false);
-    // Auto focus on next field (Duration)
     setTimeout(() => durationRef.current?.focus(), 100);
   };
 
@@ -255,8 +256,6 @@ export default function TransactionsPage() {
     setFormData(prev => ({ ...prev, agent: newAgentName }));
     setNewAgentName('');
     setAddAgentOpen(false);
-    // Auto focus on next field (Client Select)
-    // Since Select trigger is a button, we can try to focus it or just leave it
   };
 
   const updateStatus = (id: number, newStatus: 'completed' | 'cancelled') => {
@@ -286,8 +285,19 @@ export default function TransactionsPage() {
   };
 
   const handleWhatsApp = (tx: Transaction) => {
-    const text = `تفاصيل المعاملة:\nنوع: ${tx.type}\nالسعر: ${tx.clientPrice} ر.س\nرقم: ${tx.serialNo}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    // Find client to get phone number
+    const client = clients.find(c => c.name === tx.clientName);
+    const phoneNumber = client?.whatsapp || client?.phone;
+
+    const text = `تفاصيل المعاملة:\nنوع: ${tx.type}\nالسعر: ${tx.clientPrice} ر.س\nرقم: ${tx.serialNo}\nالحالة: ${tx.status === 'completed' ? 'تم الإنجاز' : 'قيد التنفيذ'}`;
+    
+    if (phoneNumber) {
+        // Remove non-digits and ensure correct format if needed, assuming stored as 966...
+        window.open(`https://wa.me/${phoneNumber}?text=${encodeURIComponent(text)}`, '_blank');
+    } else {
+        // Fallback if no number found
+        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    }
   };
 
   return (
@@ -376,7 +386,7 @@ export default function TransactionsPage() {
                                 if(errors.type) setErrors({...errors, type: ''});
                             }}
                             onKeyDown={(e) => handleKeyDown(e, agentPriceRef)}
-                            className="bg-[#eef2f6] shadow-3d-inset border-none h-10 text-sm animate-pulse-placeholder"
+                            className="bg-[#eef2f6] shadow-3d-inset border-none h-10 text-sm animate-pulse"
                         />
                     </div>
                  ) : (
@@ -623,7 +633,10 @@ export default function TransactionsPage() {
                                 <div className="flex items-center gap-2 sm:gap-4 overflow-hidden">
                                     <span className="font-mono font-bold text-gray-400 text-sm">#{tx.serialNo}</span>
                                     <span className="h-4 w-[1px] bg-gray-300"></span>
-                                    <span className="font-bold text-gray-800 text-sm truncate">{tx.type}</span>
+                                    {/* Yellow/Orange Background for Type */}
+                                    <span className="font-bold text-gray-800 text-sm truncate bg-orange-100/60 px-2 py-0.5 rounded-md border border-orange-200/50">
+                                        {tx.type}
+                                    </span>
                                     <span className="h-4 w-[1px] bg-gray-300"></span>
                                     <span className="font-bold text-blue-600 text-sm whitespace-nowrap">{tx.clientPrice} ر.س</span>
                                 </div>
@@ -665,7 +678,7 @@ export default function TransactionsPage() {
                                 <Printer className="w-4 h-4" /> طباعة
                             </button>
                             <button onClick={() => handleWhatsApp(tx)} className="flex items-center justify-center gap-2 py-3 bg-green-100 text-green-700 rounded-xl font-bold hover:bg-green-200">
-                                <Send className="w-4 h-4" /> واتساب
+                                <Send className="w-4 h-4" /> واتساب للعميل
                             </button>
                         </div>
 

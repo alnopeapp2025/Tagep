@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, UserCheck, Plus, Search, FileText, Phone, MessageCircle, AlertCircle, Wallet, CheckCircle2, Send, X } from 'lucide-react';
-import { getStoredAgents, saveStoredAgents, Agent, getStoredTransactions, Transaction, getStoredBalances, saveStoredBalances, BANKS_LIST } from '@/lib/store';
+import { 
+  getStoredAgents, saveStoredAgents, Agent, 
+  getStoredTransactions, Transaction, saveStoredTransactions,
+  getStoredBalances, saveStoredBalances, BANKS_LIST,
+  getStoredAgentTransfers, saveStoredAgentTransfers, AgentTransferRecord
+} from '@/lib/store';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
@@ -37,8 +42,9 @@ export default function AgentsPage() {
   // Calculate Total Due whenever transactions change
   useEffect(() => {
     if (agentTxs.length > 0) {
+        // Only count completed transactions that haven't been paid yet
         const total = agentTxs
-            .filter(t => t.status === 'completed')
+            .filter(t => t.status === 'completed' && !t.agentPaid)
             .reduce((sum, t) => sum + (parseFloat(t.agentPrice) || 0), 0);
         setTotalDue(total);
     } else {
@@ -90,7 +96,11 @@ export default function AgentsPage() {
 
   const handleAgentClick = (agent: Agent) => {
     const allTxs = getStoredTransactions();
-    const filtered = allTxs.filter(t => t.agent === agent.name);
+    // Filter transactions for this agent
+    // IMPORTANT: We still show unpaid completed txs, active txs, etc.
+    // Paid transactions will be hidden from the view or moved to reports
+    const filtered = allTxs.filter(t => t.agent === agent.name && !t.agentPaid);
+    
     setAgentTxs(filtered); 
     setSelectedAgent(agent);
     setTransferStep('summary'); // Reset transfer step
@@ -113,7 +123,7 @@ export default function AgentsPage() {
   };
 
   const handleTransferProcess = () => {
-    if (!selectedBank) return;
+    if (!selectedBank || !selectedAgent) return;
     
     const currentBalance = balances[selectedBank] || 0;
     if (currentBalance < totalDue) {
@@ -121,11 +131,39 @@ export default function AgentsPage() {
         return;
     }
 
-    // Deduct Amount
+    // 1. Deduct Amount from Bank
     const newBalances = { ...balances };
     newBalances[selectedBank] = currentBalance - totalDue;
     saveStoredBalances(newBalances);
     setBalances(newBalances);
+
+    // 2. Mark Transactions as Paid
+    const allTxs = getStoredTransactions();
+    const paidTxIds: number[] = [];
+    
+    const updatedTxs = allTxs.map(t => {
+        if (t.agent === selectedAgent.name && t.status === 'completed' && !t.agentPaid) {
+            paidTxIds.push(t.id);
+            return { ...t, agentPaid: true };
+        }
+        return t;
+    });
+    saveStoredTransactions(updatedTxs);
+
+    // 3. Create Transfer Record for Reports
+    const transferRecord: AgentTransferRecord = {
+        id: Date.now(),
+        agentName: selectedAgent.name,
+        amount: totalDue,
+        bank: selectedBank,
+        date: Date.now(),
+        transactionCount: paidTxIds.length
+    };
+    const transfers = getStoredAgentTransfers();
+    saveStoredAgentTransfers([transferRecord, ...transfers]);
+
+    // 4. Update Local View (Remove paid txs)
+    setAgentTxs(prev => prev.filter(t => !paidTxIds.includes(t.id)));
 
     // Move to success step
     setTransferStep('success');
@@ -288,17 +326,17 @@ export default function AgentsPage() {
                         <div className="text-left">
                             <p className="font-bold text-orange-600">{tx.agentPrice} ر.س</p>
                             <p className={`text-[10px] font-bold ${tx.status === 'completed' ? 'text-green-500' : 'text-gray-400'}`}>
-                                {tx.status === 'completed' ? 'مكتملة' : 'قيد التنفيذ'}
+                                {tx.status === 'completed' ? 'مكتملة (غير مدفوعة)' : 'قيد التنفيذ'}
                             </p>
                         </div>
                     </div>
                 )) : (
-                    <p className="text-center text-gray-500">لا توجد معاملات مسجلة لهذا المعقب.</p>
+                    <p className="text-center text-gray-500">لا توجد معاملات مستحقة الدفع حالياً.</p>
                 )}
             </div>
 
             {/* Footer Section: Total & Transfer */}
-            {agentTxs.length > 0 && (
+            {agentTxs.length > 0 && totalDue > 0 && (
                 <div className="mt-2 pt-4 border-t border-gray-200">
                     
                     {/* Step 1: Summary & Transfer Button */}
@@ -308,15 +346,13 @@ export default function AgentsPage() {
                                 <p className="text-xs text-gray-500 font-bold mb-1">إجمالي المستحق (مكتمل)</p>
                                 <p className="text-2xl font-black text-blue-600">{totalDue.toLocaleString()} ر.س</p>
                             </div>
-                            {totalDue > 0 && (
-                                <button 
-                                    onClick={() => setTransferStep('bank-select')}
-                                    className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-all"
-                                >
-                                    <Wallet className="w-4 h-4" />
-                                    تحويل للمعقب
-                                </button>
-                            )}
+                            <button 
+                                onClick={() => setTransferStep('bank-select')}
+                                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-all"
+                            >
+                                <Wallet className="w-4 h-4" />
+                                تحويل للمعقب
+                            </button>
                         </div>
                     )}
 
@@ -365,6 +401,7 @@ export default function AgentsPage() {
                                     <CheckCircle2 className="w-6 h-6" />
                                 </div>
                                 <h3 className="font-bold text-green-800">تم خصم المبلغ بنجاح</h3>
+                                <p className="text-xs text-green-600">اختفت المعاملات المدفوعة من القائمة وتم إضافتها للتقارير.</p>
                             </div>
                             
                             <div className="grid grid-cols-2 gap-3">
