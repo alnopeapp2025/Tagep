@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { 
   FileText, Wallet, BarChart3, Users, UserCheck, Settings, Bell, LogOut, 
   Trophy, Menu, Award, LogIn, Receipt, Calculator, Activity, Clock, CheckCircle2,
-  Search, Database, Trash2, Shield, AlertTriangle, Download, Upload, Crown, Mail, Phone, Lock, UserPlus, UserCircle
+  Search, Database, Trash2, Shield, AlertTriangle, Download, Upload, Crown, Mail, Phone, Lock, UserPlus, UserCircle, User as UserIcon, Key
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardButton } from '@/components/DashboardButton';
@@ -21,7 +21,8 @@ import {
   Transaction,
   getCurrentUser,
   logoutUser,
-  User
+  User,
+  changePassword
 } from '@/lib/store';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
@@ -30,8 +31,13 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  Accordion, AccordionContent, AccordionItem, AccordionTrigger,
-} from "@/components/ui/accordion";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -71,6 +77,16 @@ export default function Dashboard() {
   // Privacy Policy State
   const [privacyOpen, setPrivacyOpen] = useState(false);
 
+  // User Profile & Change Password States
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [changePassOpen, setChangePassOpen] = useState(false);
+  const [oldPass, setOldPass] = useState('');
+  const [newPass, setNewPass] = useState('');
+  const [confirmPass, setConfirmPass] = useState('');
+  const [passError, setPassError] = useState('');
+  const [passSuccess, setPassSuccess] = useState(false);
+  const [passLoading, setPassLoading] = useState(false);
+
   useEffect(() => {
     // Load User
     const user = getCurrentUser();
@@ -109,6 +125,40 @@ export default function Dashboard() {
   const handleLogout = () => {
     logoutUser();
     navigate('/login');
+  };
+
+  const handleChangePassword = async () => {
+    setPassError('');
+    if (!currentUser) return;
+    if (!oldPass || !newPass || !confirmPass) {
+        setPassError('يرجى ملء جميع الحقول');
+        return;
+    }
+    if (newPass !== confirmPass) {
+        setPassError('كلمتا المرور غير متطابقتين');
+        return;
+    }
+
+    setPassLoading(true);
+    try {
+        const result = await changePassword(currentUser.phone, oldPass, newPass);
+        if (result.success) {
+            setPassSuccess(true);
+            setTimeout(() => {
+                setChangePassOpen(false);
+                setPassSuccess(false);
+                setOldPass('');
+                setNewPass('');
+                setConfirmPass('');
+            }, 2000);
+        } else {
+            setPassError(result.message || 'فشل التحديث');
+        }
+    } catch (err) {
+        setPassError('حدث خطأ غير متوقع');
+    } finally {
+        setPassLoading(false);
+    }
   };
 
   const handleInquiry = () => {
@@ -184,16 +234,46 @@ export default function Dashboard() {
           
           <div className="flex gap-3 items-center">
             
-            {/* User Profile Icon (New) */}
+            {/* User Profile Menu (New) */}
             {currentUser && (
-                <div className="flex flex-col items-center justify-center mr-2">
-                    <div className="w-10 h-10 rounded-full bg-blue-100 shadow-3d flex items-center justify-center text-blue-600 mb-1">
-                        <UserCircle className="w-6 h-6" />
+                <DropdownMenu>
+                  <DropdownMenuTrigger className="outline-none">
+                    <div className="flex flex-col items-center justify-center mr-2 cursor-pointer group">
+                        <div className="w-10 h-10 rounded-full bg-blue-100 shadow-3d flex items-center justify-center text-blue-600 mb-1 group-hover:scale-105 transition-transform border border-blue-200">
+                            <UserCircle className="w-6 h-6" />
+                        </div>
+                        <p className="text-[10px] font-bold text-gray-600 truncate max-w-[80px]">
+                            مرحباً {currentUser.officeName}
+                        </p>
                     </div>
-                    <p className="text-[10px] font-bold text-gray-600 truncate max-w-[80px]">
-                        مرحباً {currentUser.officeName}
-                    </p>
-                </div>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-56 bg-[#eef2f6] shadow-3d border-none rounded-xl" align="end" dir="rtl">
+                    <DropdownMenuLabel className="text-center font-bold text-gray-700">{currentUser.officeName}</DropdownMenuLabel>
+                    <DropdownMenuSeparator className="bg-gray-200" />
+                    <DropdownMenuItem 
+                        className="cursor-pointer focus:bg-white focus:text-blue-600 rounded-lg my-1 gap-2"
+                        onClick={() => setProfileOpen(true)}
+                    >
+                        <UserIcon className="w-4 h-4" />
+                        <span>الملف الشخصي</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                        className="cursor-pointer focus:bg-white focus:text-blue-600 rounded-lg my-1 gap-2"
+                        onClick={() => setChangePassOpen(true)}
+                    >
+                        <Key className="w-4 h-4" />
+                        <span>تغيير كلمة المرور</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator className="bg-gray-200" />
+                    <DropdownMenuItem 
+                        className="cursor-pointer focus:bg-red-50 focus:text-red-600 text-red-500 rounded-lg my-1 gap-2"
+                        onClick={handleLogout}
+                    >
+                        <LogOut className="w-4 h-4" />
+                        <span>تسجيل الخروج</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
             )}
 
             {/* Hamburger Menu (Sheet) */}
@@ -669,6 +749,111 @@ export default function Dashboard() {
                 </button>
             </div>
         </div>
+
+        {/* Profile Dialog */}
+        <Dialog open={profileOpen} onOpenChange={setProfileOpen}>
+            <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
+                <DialogHeader><DialogTitle className="text-center text-xl font-bold text-gray-800">الملف الشخصي</DialogTitle></DialogHeader>
+                {currentUser && (
+                    <div className="py-6 space-y-4">
+                        <div className="flex flex-col items-center mb-4">
+                            <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 shadow-3d mb-3">
+                                <UserCircle className="w-10 h-10" />
+                            </div>
+                            <h3 className="text-xl font-black text-gray-800">{currentUser.officeName}</h3>
+                            <p className="text-gray-500 text-sm">عضو مسجل</p>
+                        </div>
+                        
+                        <div className="bg-white p-4 rounded-xl shadow-3d-inset space-y-3">
+                            <div className="flex justify-between items-center border-b border-gray-100 pb-2">
+                                <span className="text-gray-500 text-sm font-bold">رقم الهاتف</span>
+                                <span className="font-mono text-gray-800 font-bold" dir="ltr">{currentUser.phone}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-gray-500 text-sm font-bold">تاريخ التسجيل</span>
+                                <span className="text-gray-800 font-bold">{new Date(currentUser.createdAt).toLocaleDateString('ar-SA')}</span>
+                            </div>
+                        </div>
+
+                        <button onClick={() => setProfileOpen(false)} className="w-full py-3 bg-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-300 transition-all">إغلاق</button>
+                    </div>
+                )}
+            </DialogContent>
+        </Dialog>
+
+        {/* Change Password Dialog */}
+        <Dialog open={changePassOpen} onOpenChange={setChangePassOpen}>
+            <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
+                <DialogHeader><DialogTitle className="text-center text-xl font-bold text-gray-800">تغيير كلمة المرور</DialogTitle></DialogHeader>
+                
+                {passSuccess ? (
+                    <div className="py-8 flex flex-col items-center justify-center animate-in zoom-in">
+                        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center text-green-600 mb-4 shadow-3d">
+                            <CheckCircle2 className="w-8 h-8" strokeWidth={3} />
+                        </div>
+                        <h3 className="text-lg font-bold text-green-700">تم تغيير كلمة المرور بنجاح</h3>
+                    </div>
+                ) : (
+                    <div className="py-4 space-y-4">
+                        {passError && (
+                            <div className="bg-red-50 text-red-600 p-3 rounded-xl text-xs font-bold flex items-center gap-2 border border-red-100 shadow-sm animate-in fade-in">
+                                <AlertTriangle className="w-4 h-4" />
+                                {passError}
+                            </div>
+                        )}
+
+                        <div className="space-y-2">
+                            <Label>كلمة المرور الحالية</Label>
+                            <div className="relative">
+                                <Input 
+                                    type="password"
+                                    value={oldPass}
+                                    onChange={(e) => setOldPass(e.target.value)}
+                                    className="bg-white shadow-3d-inset border-none pl-10"
+                                />
+                                <Lock className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>كلمة المرور الجديدة</Label>
+                            <div className="relative">
+                                <Input 
+                                    type="password"
+                                    value={newPass}
+                                    onChange={(e) => setNewPass(e.target.value)}
+                                    className="bg-white shadow-3d-inset border-none pl-10"
+                                />
+                                <Lock className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>تأكيد كلمة المرور الجديدة</Label>
+                            <div className="relative">
+                                <Input 
+                                    type="password"
+                                    value={confirmPass}
+                                    onChange={(e) => setConfirmPass(e.target.value)}
+                                    className="bg-white shadow-3d-inset border-none pl-10"
+                                />
+                                <Lock className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                            </div>
+                        </div>
+
+                        <button 
+                            onClick={handleChangePassword}
+                            disabled={passLoading}
+                            className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 mt-2 disabled:opacity-70"
+                        >
+                            {passLoading ? <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span> : <Key className="w-4 h-4" />}
+                            تحديث كلمة المرور
+                        </button>
+                    </div>
+                )}
+            </DialogContent>
+        </Dialog>
+
       </div>
     </div>
   );

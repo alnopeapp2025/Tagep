@@ -185,6 +185,40 @@ export const loginUser = async (phone: string, password: string) => {
   }
 };
 
+export const changePassword = async (phone: string, oldPass: string, newPass: string) => {
+  try {
+    const oldHash = hashPassword(oldPass);
+    
+    // 1. Verify old password
+    const { data, error } = await supabase
+      .from('users')
+      .select('id')
+      .eq('phone', phone)
+      .eq('password_hash', oldHash)
+      .single();
+
+    if (error || !data) {
+      return { success: false, message: 'كلمة المرور الحالية غير صحيحة' };
+    }
+
+    // 2. Update to new password
+    const newHash = hashPassword(newPass);
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ password_hash: newHash })
+      .eq('id', data.id);
+
+    if (updateError) {
+      return { success: false, message: 'فشل تحديث كلمة المرور' };
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error('Change password error:', err);
+    return { success: false, message: 'حدث خطأ غير متوقع' };
+  }
+};
+
 // --- Password Recovery Functions ---
 
 export const verifySecurityInfo = async (phone: string, question: string, answer: string) => {
