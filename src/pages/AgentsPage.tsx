@@ -5,7 +5,8 @@ import {
   getStoredAgents, saveStoredAgents, Agent, 
   getStoredTransactions, Transaction, saveStoredTransactions,
   getStoredBalances, saveStoredBalances, BANKS_LIST,
-  getStoredAgentTransfers, saveStoredAgentTransfers, AgentTransferRecord
+  getStoredAgentTransfers, saveStoredAgentTransfers, AgentTransferRecord,
+  getStoredPendingBalances, saveStoredPendingBalances
 } from '@/lib/store';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -129,13 +130,20 @@ export default function AgentsPage() {
         return;
     }
 
-    // 1. Deduct Amount from Bank
+    // 1. Deduct Amount from Bank (Actual Treasury)
     const newBalances = { ...balances };
     newBalances[selectedBank] = currentBalance - totalDue;
     saveStoredBalances(newBalances);
     setBalances(newBalances);
 
-    // 2. Mark Transactions as Paid
+    // 2. Deduct Amount from Pending Treasury (Liability Settled)
+    const pendingBalances = getStoredPendingBalances();
+    const currentPending = pendingBalances[selectedBank] || 0;
+    const newPending = { ...pendingBalances };
+    newPending[selectedBank] = Math.max(0, currentPending - totalDue);
+    saveStoredPendingBalances(newPending);
+
+    // 3. Mark Transactions as Paid
     const allTxs = getStoredTransactions();
     const paidTxIds: number[] = [];
     
@@ -148,7 +156,7 @@ export default function AgentsPage() {
     });
     saveStoredTransactions(updatedTxs);
 
-    // 3. Create Transfer Record for Reports
+    // 4. Create Transfer Record for Reports
     const transferRecord: AgentTransferRecord = {
         id: Date.now(),
         agentName: selectedAgent.name,
@@ -160,7 +168,7 @@ export default function AgentsPage() {
     const transfers = getStoredAgentTransfers();
     saveStoredAgentTransfers([transferRecord, ...transfers]);
 
-    // 4. Update Local View
+    // 5. Update Local View
     // Refresh the list
     const refreshedTxs = updatedTxs.filter(t => t.agent === selectedAgent.name);
     setAgentTxs(refreshedTxs);

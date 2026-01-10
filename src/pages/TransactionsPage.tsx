@@ -343,8 +343,7 @@ export default function TransactionsPage() {
 
     const clientP = parseFloat(tx.clientPrice) || 0;
     const agentP = parseFloat(tx.agentPrice) || 0;
-    const profit = clientP - agentP;
-
+    
     const pendingBalances = getStoredPendingBalances();
     const currentBalances = getStoredBalances();
 
@@ -362,11 +361,11 @@ export default function TransactionsPage() {
             pendingBalances[tx.paymentMethod] = agentP;
         }
 
-        // 3. Add Profit to Actual Treasury
+        // 3. Add FULL Client Price to Actual Treasury (Cash received)
         if (currentBalances[tx.paymentMethod] !== undefined) {
-            currentBalances[tx.paymentMethod] += profit;
+            currentBalances[tx.paymentMethod] += clientP; 
         } else {
-            currentBalances[tx.paymentMethod] = profit;
+            currentBalances[tx.paymentMethod] = clientP;
         }
         
         saveStoredPendingBalances(pendingBalances);
