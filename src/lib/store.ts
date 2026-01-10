@@ -280,7 +280,9 @@ export const logoutUser = () => {
 
 export const addExpenseToCloud = async (expense: Expense, userId: number) => {
   try {
-    const { error } = await supabase
+    console.log('Attempting to add expense to cloud:', { expense, userId });
+    
+    const { data, error } = await supabase
       .from('expenses')
       .insert([
         {
@@ -290,15 +292,18 @@ export const addExpenseToCloud = async (expense: Expense, userId: number) => {
           bank: expense.bank,
           date: expense.date // Sending date as BIGINT (Date.now())
         }
-      ]);
+      ])
+      .select();
 
     if (error) {
-      console.error('Failed to sync expense to cloud:', error);
+      console.error('Supabase Insert Error:', JSON.stringify(error, null, 2));
       return false;
     }
+    
+    console.log('Expense added successfully:', data);
     return true;
   } catch (err) {
-    console.error('Error syncing expense:', err);
+    console.error('Error syncing expense (Exception):', err);
     return false;
   }
 };

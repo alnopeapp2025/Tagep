@@ -14,6 +14,7 @@ import {
   deleteExpenseFromCloud,
   User
 } from '@/lib/store';
+import { supabase } from '@/lib/supabase'; // Import Supabase Client
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
@@ -31,6 +32,7 @@ export default function ExpensesPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Initial Load
   useEffect(() => {
     const user = getCurrentUser();
     setCurrentUser(user);
@@ -46,6 +48,37 @@ export default function ExpensesPage() {
         setExpenses(getStoredExpenses());
     }
   }, [open]);
+
+  // Realtime Subscription Effect
+  useEffect(() => {
+    if (!currentUser) return;
+
+    // Subscribe to changes in 'expenses' table for this user
+    const channel = supabase
+      .channel('expenses-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen to INSERT, DELETE, UPDATE
+          schema: 'public',
+          table: 'expenses',
+          filter: `user_id=eq.${currentUser.id}` // Only listen for current user's data
+        },
+        (payload) => {
+          console.log('Realtime change detected:', payload);
+          // When a change is detected, re-fetch the list
+          fetchExpensesFromCloud(currentUser.id).then(data => {
+            setExpenses(data);
+          });
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscription on unmount or user change
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUser]);
 
   const handleAddExpense = async () => {
     setErrorMsg('');
@@ -81,9 +114,14 @@ export default function ExpensesPage() {
         // 1. Save to Cloud
         const success = await addExpenseToCloud(newExp, currentUser.id);
         if (success) {
-            // Refetch to get correct ID from DB
-            const updatedList = await fetchExpensesFromCloud(currentUser.id);
-            setExpenses(updatedList);
+            // Success: Realtime subscription will automatically update the list
+            console.log('Expense saved to cloud, waiting for realtime update...');
+        } else {
+            // Show error if cloud save fails
+            setErrorMsg("فشل حفظ المصروف في قاعدة البيانات. يرجى التأكد من الاتصال والمحاولة مرة أخرى.");
+            setLoading(false);
+            // Revert balance change locally if needed
+            return;
         }
     } else {
         // 2. Save Locally (Visitor)
@@ -115,9 +153,7 @@ export default function ExpensesPage() {
     if (currentUser) {
         // Delete from Cloud
         await deleteExpenseFromCloud(id);
-        // Refetch
-        const updatedList = await fetchExpensesFromCloud(currentUser.id);
-        setExpenses(updatedList);
+        // Realtime subscription will update the list
     } else {
         // Delete Locally
         const updatedExpenses = expenses.filter(e => e.id !== id);
