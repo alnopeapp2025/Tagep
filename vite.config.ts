@@ -4,8 +4,8 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ command }) => ({
   plugins: [react()],
-  // Uses '/Tagep/' for production build (npm run deploy) and '/' for local dev
-  base: command === 'build' ? '/Tagep/' : '/',
+  // Updated base path for custom domain (root)
+  base: '/',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
