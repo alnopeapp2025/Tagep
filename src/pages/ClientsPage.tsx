@@ -102,7 +102,8 @@ export default function ClientsPage() {
 
   const handleClientClick = (client: Client) => {
     const allTxs = getStoredTransactions();
-    const filtered = allTxs.filter(t => t.clientName === client.name && !t.clientRefunded);
+    // SHOW ALL TRANSACTIONS (Active, Completed, Cancelled, Refunded)
+    const filtered = allTxs.filter(t => t.clientName === client.name);
     
     setClientTxs(filtered); 
     setSelectedClient(client);
@@ -127,11 +128,8 @@ export default function ClientsPage() {
   const handleRefundProcess = () => {
     if (!selectedBank || !selectedClient) return;
     
-    // MODIFIED: Deduct from Pending Balances (not actual balances)
     const currentPending = pendingBalances[selectedBank] || 0;
     
-    // Note: We might allow refund even if pending is low if data was inconsistent, 
-    // but typically we check availability.
     if (currentPending < totalRefundable) {
         setTransferError('رصيد الخزنة غير المستحقة (المعلقة) لهذا البنك غير كافي');
         return;
@@ -168,8 +166,10 @@ export default function ClientsPage() {
     const refunds = getStoredClientRefunds();
     saveStoredClientRefunds([refundRecord, ...refunds]);
 
-    // 4. Update Local View (Remove refunded txs)
-    setClientTxs(prev => prev.filter(t => !refundedTxIds.includes(t.id)));
+    // 4. Update Local View
+    // Refresh the list to show updated status
+    const refreshedTxs = updatedTxs.filter(t => t.clientName === selectedClient.name);
+    setClientTxs(refreshedTxs);
 
     // Move to success step
     setTransferStep('success');
@@ -333,7 +333,15 @@ export default function ClientsPage() {
                             <span className={`font-bold ${tx.status === 'cancelled' ? 'text-red-600' : 'text-blue-600'}`}>
                                 {tx.clientPrice} ر.س
                             </span>
-                            {tx.status === 'cancelled' && <p className="text-[10px] text-red-500 font-bold">ملغاة (مسترجعة)</p>}
+                            <div className="text-[10px] font-bold">
+                                {tx.status === 'cancelled' ? (
+                                    tx.clientRefunded ? <span className="text-gray-400">تم الاسترجاع</span> : <span className="text-red-500">ملغاة (للاسترجاع)</span>
+                                ) : tx.status === 'completed' ? (
+                                    <span className="text-green-600">منجزة</span>
+                                ) : (
+                                    <span className="text-orange-500">قيد التنفيذ</span>
+                                )}
+                            </div>
                         </div>
                     </div>
                 )) : (
@@ -342,7 +350,7 @@ export default function ClientsPage() {
             </div>
 
             {/* Refund Section */}
-            {clientTxs.length > 0 && totalRefundable > 0 && (
+            {clientTxs.some(t => t.status === 'cancelled' && !t.clientRefunded) && totalRefundable > 0 && (
                 <div className="mt-2 pt-4 border-t border-gray-200">
                     
                     {/* Step 1: Summary & Refund Button */}

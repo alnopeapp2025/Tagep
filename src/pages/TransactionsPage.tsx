@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ArrowRight, Plus, Clock, Banknote, AlertCircle, Wallet, Printer, Send, Phone, MessageCircle } from 'lucide-react';
+import { ArrowRight, Plus, Clock, Banknote, AlertCircle, Wallet, Printer, Send, Phone, MessageCircle, CheckCircle2, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -102,6 +102,9 @@ export default function TransactionsPage() {
   
   // Current User for Invoice
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  // Feedback Messages
+  const [feedbackMsg, setFeedbackMsg] = useState<{type: 'success' | 'error', text: string} | null>(null);
 
   // Quick Add States
   const [addClientOpen, setAddClientOpen] = useState(false);
@@ -339,32 +342,48 @@ export default function TransactionsPage() {
     if (!tx) return;
 
     const clientP = parseFloat(tx.clientPrice) || 0;
+    const agentP = parseFloat(tx.agentPrice) || 0;
+    const profit = clientP - agentP;
+
     const pendingBalances = getStoredPendingBalances();
     const currentBalances = getStoredBalances();
 
     // Logic when completing a transaction
     if (newStatus === 'completed' && tx.status === 'active') {
-        // 1. Remove from Pending
+        // 1. Remove Client Price from Pending (It was fully there)
         if (pendingBalances[tx.paymentMethod] !== undefined) {
             pendingBalances[tx.paymentMethod] = Math.max(0, pendingBalances[tx.paymentMethod] - clientP);
         }
-        // 2. Add to Actual Treasury
-        if (currentBalances[tx.paymentMethod] !== undefined) {
-            currentBalances[tx.paymentMethod] += clientP;
+        
+        // 2. Add Agent Price back to Pending (Liability/Payable to Agent)
+        if (pendingBalances[tx.paymentMethod] !== undefined) {
+            pendingBalances[tx.paymentMethod] += agentP;
         } else {
-            currentBalances[tx.paymentMethod] = clientP;
+            pendingBalances[tx.paymentMethod] = agentP;
+        }
+
+        // 3. Add Profit to Actual Treasury
+        if (currentBalances[tx.paymentMethod] !== undefined) {
+            currentBalances[tx.paymentMethod] += profit;
+        } else {
+            currentBalances[tx.paymentMethod] = profit;
         }
         
         saveStoredPendingBalances(pendingBalances);
         saveStoredBalances(currentBalances);
         updateBalancesDisplay();
+
+        // Show Success Message
+        setFeedbackMsg({ type: 'success', text: 'تم إنجاز المعاملة بنجاح' });
+        setTimeout(() => setFeedbackMsg(null), 2000);
     }
 
     // Logic when cancelling a transaction
     if (newStatus === 'cancelled' && tx.status === 'active') {
-         // MODIFIED: Do NOT remove from Pending Balances. 
-         // It stays in Pending until refunded to client.
-         alert("تم الغاء المعامله بنجاح..");
+         // Stays in Pending Balances until refunded
+         // Show Cancel Message
+         setFeedbackMsg({ type: 'error', text: 'تم الغاء المعامله بنجاح' });
+         setTimeout(() => setFeedbackMsg(null), 2000);
     }
 
     const updatedTxs = transactions.map(t => 
@@ -401,6 +420,29 @@ export default function TransactionsPage() {
 
   return (
     <>
+    {/* Feedback Overlay */}
+    {feedbackMsg && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
+            <div className={cn(
+                "bg-white px-8 py-6 rounded-3xl shadow-3d border-2 flex flex-col items-center gap-3 animate-in zoom-in fade-in duration-300",
+                feedbackMsg.type === 'success' ? "border-green-100" : "border-red-100"
+            )}>
+                <div className={cn(
+                    "w-16 h-16 rounded-full flex items-center justify-center shadow-md",
+                    feedbackMsg.type === 'success' ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"
+                )}>
+                    {feedbackMsg.type === 'success' ? <CheckCircle2 className="w-8 h-8" strokeWidth={3} /> : <XCircle className="w-8 h-8" strokeWidth={3} />}
+                </div>
+                <h3 className={cn(
+                    "text-xl font-black",
+                    feedbackMsg.type === 'success' ? "text-green-700" : "text-red-600"
+                )}>
+                    {feedbackMsg.text}
+                </h3>
+            </div>
+        </div>
+    )}
+
     {/* Main Application UI (Hidden during print) */}
     <div className="max-w-5xl mx-auto pb-20 print:hidden">
       

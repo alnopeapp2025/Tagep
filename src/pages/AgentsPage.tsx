@@ -96,8 +96,8 @@ export default function AgentsPage() {
 
   const handleAgentClick = (agent: Agent) => {
     const allTxs = getStoredTransactions();
-    // Filter transactions for this agent
-    const filtered = allTxs.filter(t => t.agent === agent.name && !t.agentPaid);
+    // SHOW ALL TRANSACTIONS for this agent
+    const filtered = allTxs.filter(t => t.agent === agent.name);
     
     setAgentTxs(filtered); 
     setSelectedAgent(agent);
@@ -160,8 +160,10 @@ export default function AgentsPage() {
     const transfers = getStoredAgentTransfers();
     saveStoredAgentTransfers([transferRecord, ...transfers]);
 
-    // 4. Update Local View (Remove paid txs)
-    setAgentTxs(prev => prev.filter(t => !paidTxIds.includes(t.id)));
+    // 4. Update Local View
+    // Refresh the list
+    const refreshedTxs = updatedTxs.filter(t => t.agent === selectedAgent.name);
+    setAgentTxs(refreshedTxs);
 
     // Move to success step
     setTransferStep('success');
@@ -323,18 +325,24 @@ export default function AgentsPage() {
                         </div>
                         <div className="text-left">
                             <p className="font-bold text-orange-600">{tx.agentPrice} ر.س</p>
-                            <p className={`text-[10px] font-bold ${tx.status === 'completed' ? 'text-green-500' : 'text-gray-400'}`}>
-                                {tx.status === 'completed' ? 'مكتملة (غير مدفوعة)' : 'قيد التنفيذ'}
-                            </p>
+                            <div className="text-[10px] font-bold">
+                                {tx.status === 'cancelled' ? (
+                                    <span className="text-red-500">ملغاة</span>
+                                ) : tx.status === 'completed' ? (
+                                    tx.agentPaid ? <span className="text-gray-400">مدفوعة</span> : <span className="text-green-600">مكتملة (للدفع)</span>
+                                ) : (
+                                    <span className="text-orange-500">قيد التنفيذ</span>
+                                )}
+                            </div>
                         </div>
                     </div>
                 )) : (
-                    <p className="text-center text-gray-500">لا توجد معاملات مستحقة الدفع حالياً.</p>
+                    <p className="text-center text-gray-500">لا توجد معاملات مسجلة لهذا المعقب.</p>
                 )}
             </div>
 
             {/* Footer Section: Total & Transfer */}
-            {agentTxs.length > 0 && totalDue > 0 && (
+            {agentTxs.some(t => t.status === 'completed' && !t.agentPaid) && totalDue > 0 && (
                 <div className="mt-2 pt-4 border-t border-gray-200">
                     
                     {/* Step 1: Summary & Transfer Button */}
