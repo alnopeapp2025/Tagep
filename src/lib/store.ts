@@ -280,8 +280,6 @@ export const logoutUser = () => {
 
 export const addExpenseToCloud = async (expense: Expense, userId: number) => {
   try {
-    console.log('Attempting to add expense to cloud:', { expense, userId });
-    
     const { data, error } = await supabase
       .from('expenses')
       .insert([
@@ -300,7 +298,6 @@ export const addExpenseToCloud = async (expense: Expense, userId: number) => {
       return false;
     }
     
-    console.log('Expense added successfully:', data);
     return true;
   } catch (err) {
     console.error('Error syncing expense (Exception):', err);
@@ -349,6 +346,60 @@ export const deleteExpenseFromCloud = async (id: number) => {
         return false;
     }
 }
+
+// --- Agent Management (Cloud) ---
+
+export const addAgentToCloud = async (agent: Agent, userId: number) => {
+  try {
+    const { data, error } = await supabase
+      .from('agents')
+      .insert([
+        {
+          user_id: userId,
+          name: agent.name,
+          phone: agent.phone,
+          whatsapp: agent.whatsapp
+        }
+      ])
+      .select();
+
+    if (error) {
+      console.error('Supabase Insert Error (Agents):', JSON.stringify(error, null, 2));
+      return false;
+    }
+    
+    return true;
+  } catch (err) {
+    console.error('Error syncing agent (Exception):', err);
+    return false;
+  }
+};
+
+export const fetchAgentsFromCloud = async (userId: number): Promise<Agent[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('agents')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching agents:', error);
+      return [];
+    }
+
+    return data.map((item: any) => ({
+      id: item.id,
+      name: item.name,
+      phone: item.phone,
+      whatsapp: item.whatsapp,
+      createdAt: new Date(item.created_at).getTime()
+    }));
+  } catch (err) {
+    console.error('Fetch agents exception:', err);
+    return [];
+  }
+};
 
 
 // Transactions

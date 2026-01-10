@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, UserCheck, Plus, Search, FileText, Phone, MessageCircle, AlertCircle, Wallet, CheckCircle2, Send, X, Contact } from 'lucide-react';
+import { ArrowRight, UserCheck, Plus, Search, FileText, Phone, MessageCircle, AlertCircle, Wallet, CheckCircle2, Send, X, Contact, Loader2 } from 'lucide-react';
 import { 
   getStoredAgents, saveStoredAgents, Agent, 
   getStoredTransactions, Transaction, saveStoredTransactions,
   getStoredBalances, saveStoredBalances, BANKS_LIST,
   getStoredAgentTransfers, saveStoredAgentTransfers, AgentTransferRecord,
-  getStoredPendingBalances, saveStoredPendingBalances
+  getStoredPendingBalances, saveStoredPendingBalances,
+  getCurrentUser, User, addAgentToCloud, fetchAgentsFromCloud
 } from '@/lib/store';
+import { supabase } from '@/lib/supabase';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
@@ -16,6 +18,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 export default function AgentsPage() {
   const navigate = useNavigate();
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(false);
   
   // Form States
   const [newAgentName, setNewAgentName] = useState('');
@@ -36,9 +40,44 @@ export default function AgentsPage() {
   const [totalDue, setTotalDue] = useState(0);
 
   useEffect(() => {
-    setAgents(getStoredAgents());
+    const user = getCurrentUser();
+    setCurrentUser(user);
     setBalances(getStoredBalances());
+
+    if (user) {
+        // Fetch from Cloud
+        fetchAgentsFromCloud(user.id).then(data => setAgents(data));
+    } else {
+        // Fetch from Local
+        setAgents(getStoredAgents());
+    }
   }, []);
+
+  // Realtime Subscription
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const channel = supabase
+      .channel('agents-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'agents',
+          filter: `user_id=eq.${currentUser.id}`
+        },
+        (payload) => {
+          console.log('Agents Realtime Update:', payload);
+          fetchAgentsFromCloud(currentUser.id).then(data => setAgents(data));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUser]);
 
   // Calculate Total Due whenever transactions change
   useEffect(() => {
@@ -95,7 +134,7 @@ export default function AgentsPage() {
     }
   };
 
-  const handleAddAgent = () => {
+  const handleAddAgent = async () => {
     let hasError = false;
     const newErrors = { phone: '', whatsapp: '' };
 
@@ -114,17 +153,33 @@ export default function AgentsPage() {
     setErrors(newErrors);
     if (hasError) return;
 
+    setLoading(true);
+
     const newAgent: Agent = {
-      id: Date.now(),
+      id: Date.now(), // Temp ID
       name: newAgentName,
       phone: newAgentPhone ? `966${newAgentPhone}` : '',
       whatsapp: newAgentWhatsapp ? `966${newAgentWhatsapp}` : '',
       createdAt: Date.now()
     };
-    const updated = [newAgent, ...agents];
-    setAgents(updated);
-    saveStoredAgents(updated);
+
+    if (currentUser) {
+        // Save to Cloud
+        const success = await addAgentToCloud(newAgent, currentUser.id);
+        if (!success) {
+            alert('فشل حفظ المعقب في قاعدة البيانات');
+            setLoading(false);
+            return;
+        }
+        // Realtime will update the list
+    } else {
+        // Save Locally
+        const updated = [newAgent, ...agents];
+        setAgents(updated);
+        saveStoredAgents(updated);
+    }
     
+    setLoading(false);
     setNewAgentName('');
     setNewAgentPhone('');
     setNewAgentWhatsapp('');
@@ -313,7 +368,13 @@ export default function AgentsPage() {
                         {errors.whatsapp && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {errors.whatsapp}</p>}
                     </div>
 
-                    <button onClick={handleAddAgent} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg">حفظ</button>
+                    <button 
+                        onClick={handleAddAgent} 
+                        disabled={loading}
+                        className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg disabled:opacity-70 flex items-center justify-center gap-2"
+                    >
+                        {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'حفظ'}
+                    </button>
                 </div>
             </DialogContent>
         </Dialog>
