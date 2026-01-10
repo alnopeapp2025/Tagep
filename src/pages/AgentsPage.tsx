@@ -171,7 +171,11 @@ export default function AgentsPage() {
             setLoading(false);
             return;
         }
-        // Realtime will update the list
+        
+        // Instant UI Update (Optimistic)
+        // Add to local list immediately to mimic Clients behavior
+        setAgents([newAgent, ...agents]);
+        
     } else {
         // Save Locally
         const updated = [newAgent, ...agents];
