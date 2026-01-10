@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Calendar, CheckCircle, XCircle, DollarSign, Users, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+import { ArrowRight, Calendar, CheckCircle, XCircle, DollarSign, Users, ArrowUpRight, ArrowDownLeft, Eye, FileText } from 'lucide-react';
 import { getStoredTransactions, Transaction, getStoredAgentTransfers, AgentTransferRecord } from '@/lib/store';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export default function ReportsPage() {
   const navigate = useNavigate();
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [stats, setStats] = useState({
     todayCount: 0,
-    todayProfit: 0, // NEW
+    todayProfit: 0,
     weekCount: 0,
-    weekProfit: 0, // NEW
+    weekProfit: 0,
     monthCount: 0,
     completedCount: 0,
     cancelledCount: 0,
@@ -24,8 +26,14 @@ export default function ReportsPage() {
   const [agentTransfers, setAgentTransfers] = useState<AgentTransferRecord[]>([]);
   const [refunds, setRefunds] = useState<Transaction[]>([]);
 
+  // Details Modal
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailTitle, setDetailTitle] = useState('');
+  const [detailList, setDetailList] = useState<Transaction[]>([]);
+
   useEffect(() => {
     const txs = getStoredTransactions();
+    setTransactions(txs);
     calculateStats(txs);
     setAgentTransfers(getStoredAgentTransfers());
     setRefunds(txs.filter(t => t.status === 'cancelled'));
@@ -99,9 +107,48 @@ export default function ReportsPage() {
     });
   };
 
+  const handleShowDetails = (type: string) => {
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay())).getTime();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+
+    let filtered: Transaction[] = [];
+    let title = '';
+
+    switch(type) {
+        case 'today':
+            filtered = transactions.filter(t => t.createdAt >= startOfDay);
+            title = 'معاملات اليوم';
+            break;
+        case 'week':
+            filtered = transactions.filter(t => t.createdAt >= startOfWeek);
+            title = 'معاملات الأسبوع';
+            break;
+        case 'month':
+            filtered = transactions.filter(t => t.createdAt >= startOfMonth);
+            title = 'معاملات الشهر';
+            break;
+        case 'completed':
+            filtered = transactions.filter(t => t.status === 'completed');
+            title = 'المعاملات المنجزة';
+            break;
+        case 'cancelled':
+            filtered = transactions.filter(t => t.status === 'cancelled');
+            title = 'المعاملات الملغاة';
+            break;
+        default:
+            filtered = [];
+    }
+
+    setDetailList(filtered);
+    setDetailTitle(title);
+    setDetailOpen(true);
+  };
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const StatCard = ({ title, value, icon: Icon, colorClass, valueColorClass, subText }: any) => (
-    <div className="bg-[#eef2f6] rounded-2xl shadow-3d p-3 flex items-center gap-2 border border-white/50">
+  const StatCard = ({ title, value, icon: Icon, colorClass, valueColorClass, subText, detailType }: any) => (
+    <div className="bg-[#eef2f6] rounded-2xl shadow-3d p-3 flex items-center gap-2 border border-white/50 relative group">
       <div className={`w-8 h-8 rounded-xl shadow-3d-inset flex items-center justify-center ${colorClass}`}>
         <Icon className="w-4 h-4" />
       </div>
@@ -110,6 +157,18 @@ export default function ReportsPage() {
         <h3 className={`text-base font-black ${valueColorClass || 'text-gray-800'}`}>{value}</h3>
         {subText && <p className="text-[8px] text-gray-400">{subText}</p>}
       </div>
+
+      {/* Eye Icon Overlay */}
+      {detailType && (
+          <button 
+            onClick={() => handleShowDetails(detailType)}
+            className="absolute inset-0 bg-white/80 backdrop-blur-[1px] rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 cursor-pointer"
+          >
+            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 shadow-md border border-blue-200">
+                <Eye className="w-5 h-5" />
+            </div>
+          </button>
+      )}
     </div>
   );
 
@@ -144,6 +203,7 @@ export default function ReportsPage() {
                     value={stats.todayCount} 
                     icon={Calendar} 
                     colorClass="text-blue-500" 
+                    detailType="today"
                 />
                 <StatCard 
                     title="أرباح اليوم" 
@@ -151,6 +211,7 @@ export default function ReportsPage() {
                     icon={DollarSign} 
                     colorClass="text-green-600" 
                     valueColorClass="text-blue-600"
+                    detailType="today"
                 />
 
                 {/* Week Pair */}
@@ -159,6 +220,7 @@ export default function ReportsPage() {
                     value={stats.weekCount} 
                     icon={Calendar} 
                     colorClass="text-indigo-500" 
+                    detailType="week"
                 />
                 <StatCard 
                     title="أرباح الأسبوع" 
@@ -166,6 +228,7 @@ export default function ReportsPage() {
                     icon={DollarSign} 
                     colorClass="text-green-600" 
                     valueColorClass="text-blue-600"
+                    detailType="week"
                 />
             </div>
 
@@ -176,6 +239,7 @@ export default function ReportsPage() {
                     value={stats.monthCount} 
                     icon={Calendar} 
                     colorClass="text-purple-500" 
+                    detailType="month"
                 />
                 <StatCard 
                     title="أرباح الشهر الصافية" 
@@ -183,6 +247,7 @@ export default function ReportsPage() {
                     icon={DollarSign} 
                     colorClass="text-green-600" 
                     valueColorClass="text-blue-600"
+                    detailType="month"
                 />
                  <StatCard 
                     title="تم الإنجاز" 
@@ -190,6 +255,7 @@ export default function ReportsPage() {
                     icon={CheckCircle} 
                     colorClass="text-green-500" 
                     subText="إجمالي المعاملات المكتملة"
+                    detailType="completed"
                 />
                  <StatCard 
                     title="تم الإلغاء" 
@@ -197,6 +263,7 @@ export default function ReportsPage() {
                     icon={XCircle} 
                     colorClass="text-red-500" 
                     subText="إجمالي المعاملات الملغاة"
+                    detailType="cancelled"
                 />
             </div>
 
@@ -290,6 +357,46 @@ export default function ReportsPage() {
         </TabsContent>
 
       </Tabs>
+
+      {/* Details Dialog */}
+      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+        <DialogContent className="bg-[#eef2f6] border-none shadow-3d max-w-lg max-h-[80vh] overflow-y-auto" dir="rtl">
+            <DialogHeader>
+                <DialogTitle className="text-center font-bold text-gray-800">{detailTitle}</DialogTitle>
+            </DialogHeader>
+            <div className="py-4 space-y-3">
+                {detailList.length === 0 ? (
+                    <p className="text-center text-gray-500">لا توجد بيانات.</p>
+                ) : (
+                    detailList.map(tx => (
+                        <div key={tx.id} className="bg-white/50 p-3 rounded-xl flex justify-between items-center border border-white">
+                            <div className="flex items-center gap-3">
+                                <FileText className="w-4 h-4 text-gray-400" />
+                                <div>
+                                    <p className="font-bold text-sm text-gray-700">{tx.type}</p>
+                                    <div className="flex gap-2 text-[10px] text-gray-500">
+                                        <span>{tx.clientName}</span>
+                                        <span>•</span>
+                                        <span>{new Date(tx.createdAt).toLocaleDateString('ar-SA')}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="text-left">
+                                <span className={`font-bold ${tx.status === 'cancelled' ? 'text-red-600' : 'text-blue-600'}`}>
+                                    {tx.clientPrice} ر.س
+                                </span>
+                                <div className="text-[10px] font-bold">
+                                    {tx.status === 'completed' ? <span className="text-green-600">منجزة</span> : 
+                                     tx.status === 'cancelled' ? <span className="text-red-500">ملغاة</span> : 
+                                     <span className="text-orange-500">نشطة</span>}
+                                </div>
+                            </div>
+                        </div>
+                    ))
+                )}
+            </div>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );

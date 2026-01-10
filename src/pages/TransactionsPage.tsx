@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ArrowRight, Plus, Clock, Banknote, AlertCircle, Wallet, Printer, Send, Phone, MessageCircle, CheckCircle2, XCircle, Eye } from 'lucide-react';
+import { ArrowRight, Plus, Clock, Banknote, AlertCircle, Wallet, Printer, Send, Phone, MessageCircle, CheckCircle2, XCircle, Eye, Contact } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -264,6 +264,56 @@ export default function TransactionsPage() {
     return regex.test(num);
   };
 
+  // --- Contact Import Logic ---
+  const handleImportContact = async (type: 'client' | 'agent') => {
+    try {
+      // @ts-ignore - Contact Picker API
+      if ('contacts' in navigator && 'ContactsManager' in window) {
+        const props = ['name', 'tel'];
+        const opts = { multiple: false };
+        // @ts-ignore
+        const contacts = await navigator.contacts.select(props, opts);
+        
+        if (contacts.length) {
+          const contact = contacts[0];
+          const rawName = contact.name[0];
+          let rawPhone = contact.tel[0];
+
+          // Format Phone: Remove non-digits, remove 966 or 05 prefix, ensure starts with 5
+          rawPhone = rawPhone.replace(/\D/g, '');
+          
+          if (rawPhone.startsWith('966')) {
+            rawPhone = rawPhone.substring(3);
+          }
+          if (rawPhone.startsWith('0')) {
+            rawPhone = rawPhone.substring(1);
+          }
+          
+          // Ensure it starts with 5 (basic validation)
+          if (!rawPhone.startsWith('5')) {
+             // Best effort: if it's 9 digits, assume it's correct, otherwise maybe warn?
+             // For now, we just populate what we parsed.
+          }
+
+          if (type === 'client') {
+            setNewClientName(rawName);
+            setNewClientPhone(rawPhone);
+            setNewClientWhatsapp(rawPhone);
+          } else {
+            setNewAgentName(rawName);
+            setNewAgentPhone(rawPhone);
+            setNewAgentWhatsapp(rawPhone);
+          }
+        }
+      } else {
+        alert('هذه الميزة مدعومة فقط على الهواتف الذكية (Android/iOS).');
+      }
+    } catch (ex) {
+      console.error(ex);
+      // Fail silently or show generic error
+    }
+  };
+
   const handleAddClientQuick = () => {
     let hasError = false;
     const newErrors = { phone: '', whatsapp: '' };
@@ -496,139 +546,7 @@ export default function TransactionsPage() {
             {/* Compact Form Grid */}
             <div className="grid gap-3 py-2">
               
-              {/* 1. Agent Selection (Moved Up) */}
-              <div className="space-y-1">
-                <Label className="text-gray-700 font-bold text-xs">اختر المعقب</Label>
-                <div className="flex gap-2">
-                    <div className="flex-1">
-                        <Select 
-                            value={formData.agent}
-                            onValueChange={(val) => {
-                                setFormData({...formData, agent: val});
-                                if(errors.agent) setErrors({...errors, agent: ''});
-                            }}
-                        >
-                        <SelectTrigger ref={agentSelectRef} className={cn(
-                            "h-10 rounded-xl bg-[#eef2f6] shadow-3d-inset text-right flex-row-reverse text-sm",
-                            errors.agent ? "border border-red-400" : "border-none"
-                        )}>
-                            <SelectValue placeholder="اختر المعقب..." />
-                        </SelectTrigger>
-                        <SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">
-                            <SelectItem value="إنجاز بنفسي" className="text-right font-bold text-blue-600">إنجاز بنفسي</SelectItem>
-                            {agents.map((agent) => (
-                            <SelectItem key={agent.id} value={agent.name} className="text-right cursor-pointer focus:bg-white/50 my-1">{agent.name}</SelectItem>
-                            ))}
-                        </SelectContent>
-                        </Select>
-                    </div>
-                    <Dialog open={addAgentOpen} onOpenChange={setAddAgentOpen}>
-                        <DialogTrigger asChild>
-                            <button className="w-10 h-10 rounded-xl bg-orange-500 text-white shadow-3d flex items-center justify-center hover:bg-orange-600">
-                                <Plus className="w-5 h-5" />
-                            </button>
-                        </DialogTrigger>
-                        <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
-                            <DialogHeader><DialogTitle>إضافة معقب سريع</DialogTitle></DialogHeader>
-                            <div className="py-4 space-y-3">
-                                <Input 
-                                    placeholder="اسم المعقب" 
-                                    value={newAgentName}
-                                    onChange={(e) => setNewAgentName(e.target.value)}
-                                    className="bg-white shadow-3d-inset border-none"
-                                />
-                                <div className="space-y-1">
-                                    <div className="relative flex items-center" dir="ltr">
-                                        <div className="absolute left-3 z-10 text-gray-400 font-bold text-sm pointer-events-none">+966</div>
-                                        <Input 
-                                            value={newAgentPhone} 
-                                            onChange={(e) => {
-                                                const val = e.target.value.replace(/\D/g, '').slice(0, 9);
-                                                setNewAgentPhone(val);
-                                                if(agentErrors.phone) setAgentErrors({...agentErrors, phone: ''});
-                                            }} 
-                                            className={`bg-white shadow-3d-inset border-none pl-14 text-left ${agentErrors.phone ? 'ring-2 ring-red-400' : ''}`}
-                                            placeholder="5xxxxxxxx"
-                                        />
-                                        <Phone className="absolute right-3 w-4 h-4 text-gray-400" />
-                                    </div>
-                                    {agentErrors.phone && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {agentErrors.phone}</p>}
-                                </div>
-                                <div className="space-y-1">
-                                    <div className="relative flex items-center" dir="ltr">
-                                        <div className="absolute left-3 z-10 text-green-600 font-bold text-sm pointer-events-none">+966</div>
-                                        <Input 
-                                            value={newAgentWhatsapp} 
-                                            onChange={(e) => {
-                                                const val = e.target.value.replace(/\D/g, '').slice(0, 9);
-                                                setNewAgentWhatsapp(val);
-                                                if(agentErrors.whatsapp) setAgentErrors({...agentErrors, whatsapp: ''});
-                                            }} 
-                                            className={`bg-white shadow-3d-inset border-none pl-14 text-left ${agentErrors.whatsapp ? 'ring-2 ring-red-400' : ''}`}
-                                            placeholder="5xxxxxxxx"
-                                        />
-                                        <MessageCircle className="absolute right-3 w-4 h-4 text-green-500" />
-                                    </div>
-                                    {agentErrors.whatsapp && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {agentErrors.whatsapp}</p>}
-                                </div>
-                                <button onClick={handleAddAgentQuick} className="w-full py-3 bg-orange-500 text-white rounded-xl font-bold">حفظ وإكمال</button>
-                            </div>
-                        </DialogContent>
-                    </Dialog>
-                </div>
-              </div>
-
-              {/* 2. Prices */}
-              <div className="grid grid-cols-2 gap-3">
-                 {/* Conditionally Render Agent Price */}
-                 {formData.agent !== 'إنجاز بنفسي' && (
-                    <div className="space-y-1">
-                      <Label className="text-gray-700 font-bold text-xs">سعر المعقب</Label>
-                      <div className="relative">
-                        <Input 
-                          ref={agentPriceRef}
-                          type="number" 
-                          placeholder="0" 
-                          value={formData.agentPrice}
-                          onChange={(e) => {
-                              setFormData({...formData, agentPrice: e.target.value});
-                              if(errors.agentPrice) setErrors({...errors, agentPrice: ''});
-                          }}
-                          onKeyDown={(e) => handleKeyDown(e, clientPriceRef)}
-                          className={cn(
-                              "pl-10 text-left font-bold text-gray-600 h-10 text-sm",
-                              errors.agentPrice ? "border border-red-400" : "border-none"
-                          )}
-                        />
-                        <span className="absolute left-3 top-2.5 text-xs font-bold text-gray-400">ر.س</span>
-                      </div>
-                    </div>
-                 )}
-                
-                <div className={cn("space-y-1", formData.agent === 'إنجاز بنفسي' ? "col-span-2" : "")}>
-                  <Label className="text-gray-700 font-bold text-xs">السعر للعميل</Label>
-                  <div className="relative">
-                    <Input 
-                      ref={clientPriceRef}
-                      type="number" 
-                      placeholder="0" 
-                      value={formData.clientPrice}
-                      onChange={(e) => {
-                          setFormData({...formData, clientPrice: e.target.value});
-                          if(errors.clientPrice) setErrors({...errors, clientPrice: ''});
-                      }}
-                      onKeyDown={(e) => handleKeyDown(e, durationRef)}
-                      className={cn(
-                        "pl-10 text-left font-bold text-blue-600 h-10 text-sm",
-                        errors.clientPrice ? "border border-red-400" : "border-none"
-                      )}
-                    />
-                    <span className="absolute left-3 top-2.5 text-xs font-bold text-blue-400">ر.س</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* 3. Transaction Type */}
+              {/* 1. Transaction Type (Moved to Top) */}
               <div className="relative border-2 border-red-400/30 rounded-xl p-3 bg-white/30">
                  <Label className="text-gray-700 font-bold text-xs mb-2 block">نوع المعاملة</Label>
                  
@@ -687,6 +605,148 @@ export default function TransactionsPage() {
                  {errors.type && <p className="text-red-500 text-[10px] mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {errors.type}</p>}
               </div>
 
+              {/* 2. Agent Selection */}
+              <div className="space-y-1">
+                <Label className="text-gray-700 font-bold text-xs">اختر المعقب</Label>
+                <div className="flex gap-2">
+                    <div className="flex-1">
+                        <Select 
+                            value={formData.agent}
+                            onValueChange={(val) => {
+                                setFormData({...formData, agent: val});
+                                if(errors.agent) setErrors({...errors, agent: ''});
+                            }}
+                        >
+                        <SelectTrigger ref={agentSelectRef} className={cn(
+                            "h-10 rounded-xl bg-[#eef2f6] shadow-3d-inset text-right flex-row-reverse text-sm",
+                            errors.agent ? "border border-red-400" : "border-none"
+                        )}>
+                            <SelectValue placeholder="اختر المعقب..." />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">
+                            <SelectItem value="إنجاز بنفسي" className="text-right font-bold text-blue-600">إنجاز بنفسي</SelectItem>
+                            {agents.map((agent) => (
+                            <SelectItem key={agent.id} value={agent.name} className="text-right cursor-pointer focus:bg-white/50 my-1">{agent.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                        </Select>
+                    </div>
+                    <Dialog open={addAgentOpen} onOpenChange={setAddAgentOpen}>
+                        <DialogTrigger asChild>
+                            <button className="w-10 h-10 rounded-xl bg-orange-500 text-white shadow-3d flex items-center justify-center hover:bg-orange-600">
+                                <Plus className="w-5 h-5" />
+                            </button>
+                        </DialogTrigger>
+                        <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
+                            <DialogHeader><DialogTitle>إضافة معقب سريع</DialogTitle></DialogHeader>
+                            
+                            {/* Import from Phone Button */}
+                            <button 
+                                onClick={() => handleImportContact('agent')}
+                                className="w-full py-2 bg-purple-100 text-purple-700 rounded-xl font-bold shadow-sm hover:bg-purple-200 flex items-center justify-center gap-2 mb-2"
+                            >
+                                <Contact className="w-4 h-4" />
+                                أو من الهاتف
+                            </button>
+
+                            <div className="py-4 space-y-3">
+                                <Input 
+                                    placeholder="اسم المعقب" 
+                                    value={newAgentName}
+                                    onChange={(e) => setNewAgentName(e.target.value)}
+                                    className="bg-white shadow-3d-inset border-none"
+                                />
+                                <div className="space-y-1">
+                                    <div className="relative flex items-center" dir="ltr">
+                                        <div className="absolute left-3 z-10 text-gray-400 font-bold text-sm pointer-events-none">+966</div>
+                                        <Input 
+                                            value={newAgentPhone} 
+                                            onChange={(e) => {
+                                                const val = e.target.value.replace(/\D/g, '').slice(0, 9);
+                                                setNewAgentPhone(val);
+                                                if(agentErrors.phone) setAgentErrors({...agentErrors, phone: ''});
+                                            }} 
+                                            className={`bg-white shadow-3d-inset border-none pl-14 text-left ${agentErrors.phone ? 'ring-2 ring-red-400' : ''}`}
+                                            placeholder="5xxxxxxxx"
+                                        />
+                                        <Phone className="absolute right-3 w-4 h-4 text-gray-400" />
+                                    </div>
+                                    {agentErrors.phone && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {agentErrors.phone}</p>}
+                                </div>
+                                <div className="space-y-1">
+                                    <div className="relative flex items-center" dir="ltr">
+                                        <div className="absolute left-3 z-10 text-green-600 font-bold text-sm pointer-events-none">+966</div>
+                                        <Input 
+                                            value={newAgentWhatsapp} 
+                                            onChange={(e) => {
+                                                const val = e.target.value.replace(/\D/g, '').slice(0, 9);
+                                                setNewAgentWhatsapp(val);
+                                                if(agentErrors.whatsapp) setAgentErrors({...agentErrors, whatsapp: ''});
+                                            }} 
+                                            className={`bg-white shadow-3d-inset border-none pl-14 text-left ${agentErrors.whatsapp ? 'ring-2 ring-red-400' : ''}`}
+                                            placeholder="5xxxxxxxx"
+                                        />
+                                        <MessageCircle className="absolute right-3 w-4 h-4 text-green-500" />
+                                    </div>
+                                    {agentErrors.whatsapp && <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {agentErrors.whatsapp}</p>}
+                                </div>
+                                <button onClick={handleAddAgentQuick} className="w-full py-3 bg-orange-500 text-white rounded-xl font-bold">حفظ وإكمال</button>
+                            </div>
+                        </DialogContent>
+                    </Dialog>
+                </div>
+              </div>
+
+              {/* 3. Prices */}
+              <div className="grid grid-cols-2 gap-3">
+                 {/* Conditionally Render Agent Price */}
+                 {formData.agent !== 'إنجاز بنفسي' && (
+                    <div className="space-y-1">
+                      <Label className="text-gray-700 font-bold text-xs">سعر المعقب</Label>
+                      <div className="relative">
+                        <Input 
+                          ref={agentPriceRef}
+                          type="number" 
+                          placeholder="0" 
+                          value={formData.agentPrice}
+                          onChange={(e) => {
+                              setFormData({...formData, agentPrice: e.target.value});
+                              if(errors.agentPrice) setErrors({...errors, agentPrice: ''});
+                          }}
+                          onKeyDown={(e) => handleKeyDown(e, clientPriceRef)}
+                          className={cn(
+                              "pl-10 text-left font-bold text-gray-600 h-10 text-sm",
+                              errors.agentPrice ? "border border-red-400" : "border-none"
+                          )}
+                        />
+                        <span className="absolute left-3 top-2.5 text-xs font-bold text-gray-400">ر.س</span>
+                      </div>
+                    </div>
+                 )}
+                
+                <div className={cn("space-y-1", formData.agent === 'إنجاز بنفسي' ? "col-span-2" : "")}>
+                  <Label className="text-gray-700 font-bold text-xs">السعر للعميل</Label>
+                  <div className="relative">
+                    <Input 
+                      ref={clientPriceRef}
+                      type="number" 
+                      placeholder="0" 
+                      value={formData.clientPrice}
+                      onChange={(e) => {
+                          setFormData({...formData, clientPrice: e.target.value});
+                          if(errors.clientPrice) setErrors({...errors, clientPrice: ''});
+                      }}
+                      onKeyDown={(e) => handleKeyDown(e, durationRef)}
+                      className={cn(
+                        "pl-10 text-left font-bold text-blue-600 h-10 text-sm",
+                        errors.clientPrice ? "border border-red-400" : "border-none"
+                      )}
+                    />
+                    <span className="absolute left-3 top-2.5 text-xs font-bold text-blue-400">ر.س</span>
+                  </div>
+                </div>
+              </div>
+
                {/* 4. Client Selection with Add Button */}
                <div className="space-y-1">
                 <Label className="text-gray-700 font-bold text-xs">العميل</Label>
@@ -714,6 +774,16 @@ export default function TransactionsPage() {
                         </DialogTrigger>
                         <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
                             <DialogHeader><DialogTitle>إضافة عميل سريع</DialogTitle></DialogHeader>
+                            
+                            {/* Import from Phone Button */}
+                            <button 
+                                onClick={() => handleImportContact('client')}
+                                className="w-full py-2 bg-purple-100 text-purple-700 rounded-xl font-bold shadow-sm hover:bg-purple-200 flex items-center justify-center gap-2 mb-2"
+                            >
+                                <Contact className="w-4 h-4" />
+                                أو من الهاتف
+                            </button>
+
                             <div className="py-4 space-y-3">
                                 <Input 
                                     placeholder="اسم العميل" 

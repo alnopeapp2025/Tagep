@@ -212,11 +212,14 @@ export default function Dashboard() {
 
   const formatBackupDate = (ts: string) => {
     const date = new Date(parseInt(ts));
-    const dayName = date.toLocaleDateString('ar-SA', { weekday: 'long' });
-    const dateStr = date.toLocaleDateString('ar-SA', { year: 'numeric', month: 'long', day: 'numeric' });
-    const timeStr = date.toLocaleTimeString('ar-SA', { hour: 'numeric', minute: 'numeric' });
     
-    return `${dayName}، ${dateStr} الساعة ${timeStr}`;
+    // Format: "آخر نسخة احتياطية كانت يوم: [الوقت]"، [اليوم]، [الشهر]، [العام]
+    const timeStr = date.toLocaleTimeString('ar-SA', { hour: 'numeric', minute: 'numeric' });
+    const dayName = date.toLocaleDateString('ar-SA', { weekday: 'long' });
+    const monthName = date.toLocaleDateString('ar-SA', { month: 'long' });
+    const year = date.toLocaleDateString('ar-SA', { year: 'numeric' });
+    
+    return `${timeStr}، ${dayName}، ${monthName}، ${year}`;
   };
 
   const tickerItems = [

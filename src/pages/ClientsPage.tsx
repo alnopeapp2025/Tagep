@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Users, Plus, Search, FileText, Phone, MessageCircle, AlertCircle, Wallet, CheckCircle2, Send, X } from 'lucide-react';
+import { ArrowRight, Users, Plus, Search, FileText, Phone, MessageCircle, AlertCircle, Wallet, CheckCircle2, Send, X, Contact } from 'lucide-react';
 import { 
   getStoredClients, saveStoredClients, Client, 
   getStoredTransactions, Transaction, saveStoredTransactions,
@@ -57,6 +57,43 @@ export default function ClientsPage() {
     // Must be 9 digits and start with 5
     const regex = /^5[0-9]{8}$/;
     return regex.test(num);
+  };
+
+  // --- Contact Import Logic ---
+  const handleImportContact = async () => {
+    try {
+      // @ts-ignore - Contact Picker API
+      if ('contacts' in navigator && 'ContactsManager' in window) {
+        const props = ['name', 'tel'];
+        const opts = { multiple: false };
+        // @ts-ignore
+        const contacts = await navigator.contacts.select(props, opts);
+        
+        if (contacts.length) {
+          const contact = contacts[0];
+          const rawName = contact.name[0];
+          let rawPhone = contact.tel[0];
+
+          // Format Phone: Remove non-digits, remove 966 or 05 prefix, ensure starts with 5
+          rawPhone = rawPhone.replace(/\D/g, '');
+          
+          if (rawPhone.startsWith('966')) {
+            rawPhone = rawPhone.substring(3);
+          }
+          if (rawPhone.startsWith('0')) {
+            rawPhone = rawPhone.substring(1);
+          }
+          
+          setNewClientName(rawName);
+          setNewClientPhone(rawPhone);
+          setNewClientWhatsapp(rawPhone);
+        }
+      } else {
+        alert('هذه الميزة مدعومة فقط على الهواتف الذكية (Android/iOS).');
+      }
+    } catch (ex) {
+      console.error(ex);
+    }
   };
 
   const handleAddClient = () => {
@@ -216,6 +253,16 @@ export default function ClientsPage() {
             </DialogTrigger>
             <DialogContent className="bg-[#eef2f6] shadow-3d border-none" dir="rtl">
                 <DialogHeader><DialogTitle>إضافة عميل جديد</DialogTitle></DialogHeader>
+                
+                {/* Import from Phone Button */}
+                <button 
+                    onClick={handleImportContact}
+                    className="w-full py-2 bg-purple-100 text-purple-700 rounded-xl font-bold shadow-sm hover:bg-purple-200 flex items-center justify-center gap-2 mb-2"
+                >
+                    <Contact className="w-4 h-4" />
+                    أو من الهاتف
+                </button>
+
                 <div className="space-y-4 py-4">
                     <div className="space-y-2">
                         <Label>اسم العميل</Label>
