@@ -19,7 +19,6 @@ export default function AgentsPage() {
   const navigate = useNavigate();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(false);
   
   // Form States
   const [newAgentName, setNewAgentName] = useState('');
@@ -134,7 +133,7 @@ export default function AgentsPage() {
     }
   };
 
-  const handleAddAgent = async () => {
+  const handleAddAgent = () => {
     let hasError = false;
     const newErrors = { phone: '', whatsapp: '' };
 
@@ -153,42 +152,38 @@ export default function AgentsPage() {
     setErrors(newErrors);
     if (hasError) return;
 
-    setLoading(true);
-
     const newAgent: Agent = {
-      id: Date.now(), // Temp ID
+      id: Date.now(), // Temp ID for instant display
       name: newAgentName,
       phone: newAgentPhone ? `966${newAgentPhone}` : '',
       whatsapp: newAgentWhatsapp ? `966${newAgentWhatsapp}` : '',
       createdAt: Date.now()
     };
 
-    if (currentUser) {
-        // Save to Cloud
-        const success = await addAgentToCloud(newAgent, currentUser.id);
-        if (!success) {
-            alert('فشل حفظ المعقب في قاعدة البيانات');
-            setLoading(false);
-            return;
-        }
-        
-        // Instant UI Update (Optimistic)
-        // Add to local list immediately to mimic Clients behavior
-        setAgents([newAgent, ...agents]);
-        
-    } else {
-        // Save Locally
-        const updated = [newAgent, ...agents];
-        setAgents(updated);
-        saveStoredAgents(updated);
-    }
-    
-    setLoading(false);
+    // 1. Instant UI Update (Optimistic) - Like Clients Page
+    // Using functional update to ensure we have the latest state
+    setAgents(prev => [newAgent, ...prev]);
+
+    // 2. Reset Form & Close Dialog Immediately
     setNewAgentName('');
     setNewAgentPhone('');
     setNewAgentWhatsapp('');
     setErrors({ phone: '', whatsapp: '' });
     setOpen(false);
+
+    // 3. Background Sync (Fire and Forget)
+    if (currentUser) {
+        addAgentToCloud(newAgent, currentUser.id).then(success => {
+            if (!success) {
+                console.error("Failed to sync agent to cloud");
+                // Optional: Show a toast error if needed, but keep UI fast
+            }
+        });
+    } else {
+        // Local Storage
+        const currentAgents = getStoredAgents();
+        saveStoredAgents([newAgent, ...currentAgents]);
+    }
   };
 
   const handleAgentClick = (agent: Agent) => {
@@ -374,10 +369,9 @@ export default function AgentsPage() {
 
                     <button 
                         onClick={handleAddAgent} 
-                        disabled={loading}
-                        className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg disabled:opacity-70 flex items-center justify-center gap-2"
+                        className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2"
                     >
-                        {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'حفظ'}
+                        حفظ
                     </button>
                 </div>
             </DialogContent>
