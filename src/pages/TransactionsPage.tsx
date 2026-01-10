@@ -26,7 +26,8 @@ import {
   getStoredBalances, saveStoredBalances, 
   getStoredPendingBalances, saveStoredPendingBalances,
   BANKS_LIST, getStoredClients, saveStoredClients, Client, getStoredAgents, saveStoredAgents, Agent,
-  getCurrentUser, User
+  getCurrentUser, User,
+  addAgentToCloud, fetchAgentsFromCloud // Imported Cloud Functions
 } from '@/lib/store';
 
 // --- Types ---
@@ -144,11 +145,22 @@ export default function TransactionsPage() {
 
   // Load Initial Data
   useEffect(() => {
+    const user = getCurrentUser();
+    setCurrentUser(user);
+
     const loadedTxs = getStoredTransactions();
     setTransactions(loadedTxs);
+    
+    // Load Clients (Local for now as per store)
     setClients(getStoredClients());
-    setAgents(getStoredAgents());
-    setCurrentUser(getCurrentUser());
+
+    // Load Agents (Cloud if logged in, Local otherwise)
+    if (user) {
+        fetchAgentsFromCloud(user.id).then(data => setAgents(data));
+    } else {
+        setAgents(getStoredAgents());
+    }
+
     updateBalancesDisplay();
   }, []);
 
@@ -289,12 +301,6 @@ export default function TransactionsPage() {
             rawPhone = rawPhone.substring(1);
           }
           
-          // Ensure it starts with 5 (basic validation)
-          if (!rawPhone.startsWith('5')) {
-             // Best effort: if it's 9 digits, assume it's correct, otherwise maybe warn?
-             // For now, we just populate what we parsed.
-          }
-
           if (type === 'client') {
             setNewClientName(rawName);
             setNewClientPhone(rawPhone);
@@ -310,7 +316,6 @@ export default function TransactionsPage() {
       }
     } catch (ex) {
       console.error(ex);
-      // Fail silently or show generic error
     }
   };
 
@@ -353,7 +358,7 @@ export default function TransactionsPage() {
     setTimeout(() => durationRef.current?.focus(), 100);
   };
 
-  const handleAddAgentQuick = () => {
+  const handleAddAgentQuick = async () => {
     let hasError = false;
     const newErrors = { phone: '', whatsapp: '' };
 
@@ -379,11 +384,21 @@ export default function TransactionsPage() {
       whatsapp: newAgentWhatsapp ? `966${newAgentWhatsapp}` : '',
       createdAt: Date.now()
     };
-    const updated = [newAgent, ...agents];
-    setAgents(updated);
-    saveStoredAgents(updated);
 
+    // 1. Instant UI Update (Optimistic)
+    // This ensures the dropdown updates immediately
+    setAgents(prev => [newAgent, ...prev]);
     setFormData(prev => ({ ...prev, agent: newAgentName }));
+
+    // 2. Save Data (Cloud or Local)
+    if (currentUser) {
+        await addAgentToCloud(newAgent, currentUser.id);
+    } else {
+        const currentAgents = getStoredAgents();
+        saveStoredAgents([newAgent, ...currentAgents]);
+    }
+
+    // 3. Reset Form
     setNewAgentName('');
     setNewAgentPhone('');
     setNewAgentWhatsapp('');

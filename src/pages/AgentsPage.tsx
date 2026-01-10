@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, UserCheck, Plus, Search, FileText, Phone, MessageCircle, AlertCircle, Wallet, CheckCircle2, Send, X, Contact, Loader2 } from 'lucide-react';
+import { ArrowRight, UserCheck, Plus, Search, FileText, Phone, MessageCircle, AlertCircle, Wallet, CheckCircle2, Send, X, Contact } from 'lucide-react';
 import { 
   getStoredAgents, saveStoredAgents, Agent, 
   getStoredTransactions, Transaction, saveStoredTransactions,
@@ -67,8 +67,9 @@ export default function AgentsPage() {
           filter: `user_id=eq.${currentUser.id}`
         },
         (payload) => {
-          console.log('Agents Realtime Update:', payload);
-          fetchAgentsFromCloud(currentUser.id).then(data => setAgents(data));
+          // Optional: You can refresh here, but we rely on Optimistic UI for adds
+          // fetchAgentsFromCloud(currentUser.id).then(data => setAgents(data));
+          console.log('Realtime update:', payload);
         }
       )
       .subscribe();
@@ -111,15 +112,10 @@ export default function AgentsPage() {
           const rawName = contact.name[0];
           let rawPhone = contact.tel[0];
 
-          // Format Phone: Remove non-digits, remove 966 or 05 prefix, ensure starts with 5
+          // Format Phone
           rawPhone = rawPhone.replace(/\D/g, '');
-          
-          if (rawPhone.startsWith('966')) {
-            rawPhone = rawPhone.substring(3);
-          }
-          if (rawPhone.startsWith('0')) {
-            rawPhone = rawPhone.substring(1);
-          }
+          if (rawPhone.startsWith('966')) rawPhone = rawPhone.substring(3);
+          if (rawPhone.startsWith('0')) rawPhone = rawPhone.substring(1);
           
           setNewAgentName(rawName);
           setNewAgentPhone(rawPhone);
@@ -153,34 +149,27 @@ export default function AgentsPage() {
     if (hasError) return;
 
     const newAgent: Agent = {
-      id: Date.now(), // Temp ID for instant display
+      id: Date.now(),
       name: newAgentName,
       phone: newAgentPhone ? `966${newAgentPhone}` : '',
       whatsapp: newAgentWhatsapp ? `966${newAgentWhatsapp}` : '',
       createdAt: Date.now()
     };
 
-    // 1. Instant UI Update (Optimistic) - Like Clients Page
-    // Using functional update to ensure we have the latest state
+    // 1. Instant UI Update (Optimistic)
     setAgents(prev => [newAgent, ...prev]);
 
-    // 2. Reset Form & Close Dialog Immediately
+    // 2. Close Dialog Immediately
     setNewAgentName('');
     setNewAgentPhone('');
     setNewAgentWhatsapp('');
     setErrors({ phone: '', whatsapp: '' });
     setOpen(false);
 
-    // 3. Background Sync (Fire and Forget)
+    // 3. Background Sync
     if (currentUser) {
-        addAgentToCloud(newAgent, currentUser.id).then(success => {
-            if (!success) {
-                console.error("Failed to sync agent to cloud");
-                // Optional: Show a toast error if needed, but keep UI fast
-            }
-        });
+        addAgentToCloud(newAgent, currentUser.id);
     } else {
-        // Local Storage
         const currentAgents = getStoredAgents();
         saveStoredAgents([newAgent, ...currentAgents]);
     }
@@ -188,16 +177,15 @@ export default function AgentsPage() {
 
   const handleAgentClick = (agent: Agent) => {
     const allTxs = getStoredTransactions();
-    // SHOW ALL TRANSACTIONS for this agent
+    // Filter transactions for this agent
     const filtered = allTxs.filter(t => t.agent === agent.name);
     
     setAgentTxs(filtered); 
     setSelectedAgent(agent);
-    setTransferStep('summary'); // Reset transfer step
+    setTransferStep('summary');
     setTransferError('');
     setSelectedBank('');
-    // Refresh balances
-    setBalances(getStoredBalances());
+    setBalances(getStoredBalances()); // Refresh balances
   };
 
   const handleWhatsAppClick = (e: React.MouseEvent, number?: string) => {
@@ -216,18 +204,20 @@ export default function AgentsPage() {
     if (!selectedBank || !selectedAgent) return;
     
     const currentBalance = balances[selectedBank] || 0;
+    // Check if we have enough cash in the selected bank
     if (currentBalance < totalDue) {
         setTransferError('رصيد البنك المختار غير كافي');
         return;
     }
 
-    // 1. Deduct Amount from Bank (Actual Treasury)
+    // 1. Deduct from Actual Treasury (Cash Out)
     const newBalances = { ...balances };
     newBalances[selectedBank] = currentBalance - totalDue;
     saveStoredBalances(newBalances);
     setBalances(newBalances);
 
-    // 2. Deduct Amount from Pending Treasury (Liability Settled)
+    // 2. Deduct from Pending Treasury (Liability Settled)
+    // As per requirement: "خصم المبلغ فوراً من خزنة غير مستحقة"
     const pendingBalances = getStoredPendingBalances();
     const currentPending = pendingBalances[selectedBank] || 0;
     const newPending = { ...pendingBalances };
@@ -247,7 +237,7 @@ export default function AgentsPage() {
     });
     saveStoredTransactions(updatedTxs);
 
-    // 4. Create Transfer Record for Reports
+    // 4. Create Transfer Record
     const transferRecord: AgentTransferRecord = {
         id: Date.now(),
         agentName: selectedAgent.name,
@@ -259,8 +249,7 @@ export default function AgentsPage() {
     const transfers = getStoredAgentTransfers();
     saveStoredAgentTransfers([transferRecord, ...transfers]);
 
-    // 5. Update Local View
-    // Refresh the list
+    // 5. Update Local View Immediately (Optimistic Update)
     const refreshedTxs = updatedTxs.filter(t => t.agent === selectedAgent.name);
     setAgentTxs(refreshedTxs);
 
@@ -270,9 +259,7 @@ export default function AgentsPage() {
 
   const sendTransferWhatsApp = () => {
     if (!selectedAgent?.whatsapp) return;
-    
     const message = `مرحباً ${selectedAgent.name}،\nتم تحويل مبلغ مستحقات المعاملات المنجزة.\nالمبلغ: ${totalDue} ر.س\nتم الخصم من: ${selectedBank}\nشكراً لجهودك.`;
-    
     window.open(`https://wa.me/${selectedAgent.whatsapp}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
@@ -310,7 +297,6 @@ export default function AgentsPage() {
             <DialogContent className="bg-[#eef2f6] shadow-3d border-none" dir="rtl">
                 <DialogHeader><DialogTitle>إضافة معقب جديد</DialogTitle></DialogHeader>
                 
-                {/* Import from Phone Button */}
                 <button 
                     onClick={handleImportContact}
                     className="w-full py-2 bg-purple-100 text-purple-700 rounded-xl font-bold shadow-sm hover:bg-purple-200 flex items-center justify-center gap-2 mb-2"
@@ -462,10 +448,6 @@ export default function AgentsPage() {
                     {/* Step 1: Summary & Transfer Button */}
                     {transferStep === 'summary' && (
                         <div className="flex items-center justify-between bg-white p-4 rounded-xl shadow-3d-inset">
-                            <div>
-                                <p className="text-xs text-gray-500 font-bold mb-1">إجمالي المستحق (مكتمل)</p>
-                                <p className="text-2xl font-black text-blue-600">{totalDue.toLocaleString()} ر.س</p>
-                            </div>
                             <button 
                                 onClick={() => setTransferStep('bank-select')}
                                 className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-all"
@@ -473,6 +455,10 @@ export default function AgentsPage() {
                                 <Wallet className="w-4 h-4" />
                                 تحويل للمعقب
                             </button>
+                            <div className="text-left">
+                                <p className="text-xs text-gray-500 font-bold mb-1">إجمالي المستحق (مكتمل)</p>
+                                <p className="text-2xl font-black text-blue-600">{totalDue.toLocaleString()} ر.س</p>
+                            </div>
                         </div>
                     )}
 
