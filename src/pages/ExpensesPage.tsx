@@ -1,7 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Receipt, Plus, Wallet, AlertCircle, Trash2 } from 'lucide-react';
-import { getStoredExpenses, saveStoredExpenses, Expense, getStoredBalances, saveStoredBalances, BANKS_LIST } from '@/lib/store';
+import { ArrowRight, Receipt, Plus, Wallet, AlertCircle, Trash2, Loader2 } from 'lucide-react';
+import { 
+  getStoredExpenses, 
+  saveStoredExpenses, 
+  Expense, 
+  getStoredBalances, 
+  saveStoredBalances, 
+  BANKS_LIST,
+  getCurrentUser,
+  addExpenseToCloud,
+  fetchExpensesFromCloud,
+  deleteExpenseFromCloud,
+  User
+} from '@/lib/store';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
@@ -16,13 +28,26 @@ export default function ExpensesPage() {
   const [open, setOpen] = useState(false);
   const [balances, setBalances] = useState<Record<string, number>>({});
   const [errorMsg, setErrorMsg] = useState('');
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    setExpenses(getStoredExpenses());
+    const user = getCurrentUser();
+    setCurrentUser(user);
     setBalances(getStoredBalances());
+
+    if (user) {
+        // Fetch from Cloud if logged in
+        fetchExpensesFromCloud(user.id).then(data => {
+            setExpenses(data);
+        });
+    } else {
+        // Fetch from Local
+        setExpenses(getStoredExpenses());
+    }
   }, [open]);
 
-  const handleAddExpense = () => {
+  const handleAddExpense = async () => {
     setErrorMsg('');
     if (!title || !amount || !selectedBank) return;
     const cost = parseFloat(amount);
@@ -35,31 +60,46 @@ export default function ExpensesPage() {
         return;
     }
 
-    // Update Balance
+    setLoading(true);
+
+    // Update Balance (Locally for now to reflect immediately)
     const newBalances = { ...balances };
     newBalances[selectedBank] = currentBalance - cost;
     saveStoredBalances(newBalances);
     setBalances(newBalances);
 
-    // Save Expense
+    // Prepare Expense Object
     const newExp: Expense = {
-      id: Date.now(),
+      id: Date.now(), // Temporary ID for local, DB will generate its own
       title,
       amount: cost,
       bank: selectedBank,
       date: Date.now()
     };
-    const updated = [newExp, ...expenses];
-    setExpenses(updated);
-    saveStoredExpenses(updated);
+
+    if (currentUser) {
+        // 1. Save to Cloud
+        const success = await addExpenseToCloud(newExp, currentUser.id);
+        if (success) {
+            // Refetch to get correct ID from DB
+            const updatedList = await fetchExpensesFromCloud(currentUser.id);
+            setExpenses(updatedList);
+        }
+    } else {
+        // 2. Save Locally (Visitor)
+        const updated = [newExp, ...expenses];
+        setExpenses(updated);
+        saveStoredExpenses(updated);
+    }
     
+    setLoading(false);
     setTitle('');
     setAmount('');
     setSelectedBank('');
     setOpen(false);
   };
 
-  const handleDeleteExpense = (id: number) => {
+  const handleDeleteExpense = async (id: number) => {
     if(!confirm('هل أنت متأكد من حذف هذا المصروف؟ سيتم إعادة المبلغ للحساب.')) return;
 
     const expenseToDelete = expenses.find(e => e.id === id);
@@ -72,10 +112,18 @@ export default function ExpensesPage() {
     saveStoredBalances(newBalances);
     setBalances(newBalances);
 
-    // Remove expense from list
-    const updatedExpenses = expenses.filter(e => e.id !== id);
-    setExpenses(updatedExpenses);
-    saveStoredExpenses(updatedExpenses);
+    if (currentUser) {
+        // Delete from Cloud
+        await deleteExpenseFromCloud(id);
+        // Refetch
+        const updatedList = await fetchExpensesFromCloud(currentUser.id);
+        setExpenses(updatedList);
+    } else {
+        // Delete Locally
+        const updatedExpenses = expenses.filter(e => e.id !== id);
+        setExpenses(updatedExpenses);
+        saveStoredExpenses(updatedExpenses);
+    }
   };
 
   return (
@@ -150,7 +198,13 @@ export default function ExpensesPage() {
                         </div>
                     )}
 
-                    <button onClick={handleAddExpense} className="w-full py-3 bg-red-600 text-white rounded-xl font-bold shadow-lg">خصم وتسجيل</button>
+                    <button 
+                        onClick={handleAddExpense} 
+                        disabled={loading}
+                        className="w-full py-3 bg-red-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 disabled:opacity-70"
+                    >
+                        {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'خصم وتسجيل'}
+                    </button>
                 </div>
             </DialogContent>
         </Dialog>

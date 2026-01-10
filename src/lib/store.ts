@@ -276,6 +276,75 @@ export const logoutUser = () => {
   localStorage.removeItem(CURRENT_USER_KEY);
 };
 
+// --- Expense Management (Cloud) ---
+
+export const addExpenseToCloud = async (expense: Expense, userId: number) => {
+  try {
+    const { error } = await supabase
+      .from('expenses')
+      .insert([
+        {
+          user_id: userId,
+          title: expense.title,
+          amount: expense.amount,
+          bank: expense.bank,
+          date: expense.date // Sending date as BIGINT (Date.now())
+        }
+      ]);
+
+    if (error) {
+      console.error('Failed to sync expense to cloud:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Error syncing expense:', err);
+    return false;
+  }
+};
+
+export const fetchExpensesFromCloud = async (userId: number): Promise<Expense[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('expenses')
+      .select('*')
+      .eq('user_id', userId)
+      .order('date', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching expenses:', error);
+      return [];
+    }
+
+    // Map DB columns to Expense interface
+    // Note: DB 'id' is int8 (number), 'date' is bigint (number)
+    return data.map((item: any) => ({
+      id: item.id,
+      title: item.title,
+      amount: Number(item.amount),
+      bank: item.bank,
+      date: Number(item.date)
+    }));
+  } catch (err) {
+    console.error('Fetch exception:', err);
+    return [];
+  }
+};
+
+export const deleteExpenseFromCloud = async (id: number) => {
+    try {
+        const { error } = await supabase.from('expenses').delete().eq('id', id);
+        if (error) {
+            console.error('Delete error', error);
+            return false;
+        }
+        return true;
+    } catch (err) {
+        console.error('Delete exception', err);
+        return false;
+    }
+}
+
 
 // Transactions
 export const getStoredTransactions = (): Transaction[] => {
