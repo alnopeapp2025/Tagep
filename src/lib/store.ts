@@ -99,6 +99,7 @@ const LESSONS_KEY = 'moaqeb_lessons_v1';
 const AGENT_TRANSFERS_KEY = 'moaqeb_agent_transfers_v1';
 const CLIENT_REFUNDS_KEY = 'moaqeb_client_refunds_v1';
 const CURRENT_USER_KEY = 'moaqeb_current_user_v1'; // Session Storage
+const LAST_BACKUP_KEY = 'moaqeb_last_backup_v1';
 
 // --- User Management (Supabase Auth) ---
 
@@ -435,6 +436,10 @@ export const calculateAchievers = (transactions: Transaction[]) => {
 
 // --- Backup & Restore & Delete ---
 
+export const getLastBackupTime = () => {
+  return localStorage.getItem(LAST_BACKUP_KEY);
+};
+
 export const createBackup = () => {
   const data = {
     transactions: getStoredTransactions(),
@@ -449,6 +454,10 @@ export const createBackup = () => {
     clientRefunds: getStoredClientRefunds(),
     timestamp: Date.now()
   };
+  
+  // Save backup timestamp
+  localStorage.setItem(LAST_BACKUP_KEY, Date.now().toString());
+  
   return JSON.stringify(data);
 };
 

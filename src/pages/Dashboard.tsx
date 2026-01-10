@@ -22,7 +22,8 @@ import {
   getCurrentUser,
   logoutUser,
   User,
-  changePassword
+  changePassword,
+  getLastBackupTime
 } from '@/lib/store';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
@@ -58,6 +59,7 @@ export default function Dashboard() {
   // Backup State
   const [backupOpen, setBackupOpen] = useState(false);
   const [restoreText, setRestoreText] = useState('');
+  const [lastBackup, setLastBackup] = useState<string | null>(null);
 
   // Delete States
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -95,6 +97,9 @@ export default function Dashboard() {
     const txs = getStoredTransactions();
     setTransactions(txs);
     setAchievers(calculateAchievers(txs));
+
+    // Load Backup Time
+    setLastBackup(getLastBackupTime());
 
     // Calculate Ticker Stats
     const now = Date.now();
@@ -183,6 +188,7 @@ export default function Dashboard() {
 
   const handleCreateBackup = () => {
     const data = createBackup();
+    setLastBackup(Date.now().toString()); // Update local state
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -202,6 +208,15 @@ export default function Dashboard() {
     } else {
       alert('فشل استعادة النسخة. تأكد من صحة الكود.');
     }
+  };
+
+  const formatBackupDate = (ts: string) => {
+    const date = new Date(parseInt(ts));
+    const dayName = date.toLocaleDateString('ar-SA', { weekday: 'long' });
+    const dateStr = date.toLocaleDateString('ar-SA', { year: 'numeric', month: 'long', day: 'numeric' });
+    const timeStr = date.toLocaleTimeString('ar-SA', { hour: 'numeric', minute: 'numeric' });
+    
+    return `${dayName}، ${dateStr} الساعة ${timeStr}`;
   };
 
   const tickerItems = [
@@ -396,10 +411,18 @@ export default function Dashboard() {
                     <DialogContent className="bg-[#eef2f6] border-none shadow-3d" dir="rtl">
                       <DialogHeader><DialogTitle>النسخ الاحتياطي والاستعادة</DialogTitle></DialogHeader>
                       <div className="space-y-6 py-4">
+                        
+                        {/* Last Backup Info - Updated Format */}
+                        {lastBackup && (
+                            <div className="bg-blue-50 border border-blue-100 p-3 rounded-xl text-xs text-blue-700 font-bold text-center">
+                                آخر نسخة احتياطية كانت يوم: {formatBackupDate(lastBackup)}
+                            </div>
+                        )}
+
                         <div className="space-y-2">
                           <Label>إنشاء نسخة احتياطية</Label>
                           <button onClick={handleCreateBackup} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2">
-                            <Download className="w-4 h-4" /> تحميل ملف النسخة
+                            <Download className="w-4 h-4" /> إنشاء نسخة احتياطية (Create Backup)
                           </button>
                         </div>
                         <Separator />
@@ -412,7 +435,7 @@ export default function Dashboard() {
                             onChange={(e) => setRestoreText(e.target.value)}
                           />
                           <button onClick={handleRestoreBackup} className="w-full py-3 bg-orange-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2">
-                            <Upload className="w-4 h-4" /> استعادة البيانات
+                            <Upload className="w-4 h-4" /> استرجاع نسخة احتياطية (Restore Backup)
                           </button>
                         </div>
                       </div>

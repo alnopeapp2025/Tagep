@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Receipt, Plus, Wallet, AlertCircle } from 'lucide-react';
+import { ArrowRight, Receipt, Plus, Wallet, AlertCircle, Trash2 } from 'lucide-react';
 import { getStoredExpenses, saveStoredExpenses, Expense, getStoredBalances, saveStoredBalances, BANKS_LIST } from '@/lib/store';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -57,6 +57,25 @@ export default function ExpensesPage() {
     setAmount('');
     setSelectedBank('');
     setOpen(false);
+  };
+
+  const handleDeleteExpense = (id: number) => {
+    if(!confirm('هل أنت متأكد من حذف هذا المصروف؟ سيتم إعادة المبلغ للحساب.')) return;
+
+    const expenseToDelete = expenses.find(e => e.id === id);
+    if (!expenseToDelete) return;
+
+    // Refund balance (Add amount back to the bank)
+    const currentBalance = balances[expenseToDelete.bank] || 0;
+    const newBalances = { ...balances };
+    newBalances[expenseToDelete.bank] = currentBalance + expenseToDelete.amount;
+    saveStoredBalances(newBalances);
+    setBalances(newBalances);
+
+    // Remove expense from list
+    const updatedExpenses = expenses.filter(e => e.id !== id);
+    setExpenses(updatedExpenses);
+    saveStoredExpenses(updatedExpenses);
   };
 
   return (
@@ -139,7 +158,7 @@ export default function ExpensesPage() {
 
       <div className="space-y-3">
         {expenses.map(exp => (
-            <div key={exp.id} className="bg-[#eef2f6] p-4 rounded-2xl shadow-3d flex justify-between items-center border border-white/50">
+            <div key={exp.id} className="bg-[#eef2f6] p-4 rounded-2xl shadow-3d flex justify-between items-center border border-white/50 group">
                 <div className="flex items-center gap-4">
                     <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center text-red-500 shadow-sm">
                         <Receipt className="w-5 h-5" />
@@ -153,7 +172,16 @@ export default function ExpensesPage() {
                         </div>
                     </div>
                 </div>
-                <span className="font-bold text-red-600 text-lg">-{exp.amount.toLocaleString()} ر.س</span>
+                <div className="flex items-center gap-4">
+                    <span className="font-bold text-red-600 text-lg">-{exp.amount.toLocaleString()} ر.س</span>
+                    <button 
+                        onClick={() => handleDeleteExpense(exp.id)}
+                        className="p-2 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all shadow-sm active:scale-95"
+                        title="حذف المصروف"
+                    >
+                        <Trash2 className="w-5 h-5" />
+                    </button>
+                </div>
             </div>
         ))}
         {expenses.length === 0 && <p className="text-center text-gray-400 py-10">لا توجد مصروفات مسجلة.</p>}

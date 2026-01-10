@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ArrowRight, Plus, Clock, Banknote, AlertCircle, Wallet, Printer, Send, Phone, MessageCircle, CheckCircle2, XCircle } from 'lucide-react';
+import { ArrowRight, Plus, Clock, Banknote, AlertCircle, Wallet, Printer, Send, Phone, MessageCircle, CheckCircle2, XCircle, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -176,10 +176,13 @@ export default function TransactionsPage() {
     if (inputTypeMode === 'select' && !formData.selectedType) {
         newErrors.type = "يرجى اختيار نوع المعاملة";
     }
-    if (!formData.agentPrice) {
+    
+    // Only validate agent price if not self-service
+    if (formData.agent !== 'إنجاز بنفسي' && !formData.agentPrice) {
         newErrors.agentPrice = "مطلوب";
         if(!firstErrorField) firstErrorField = agentPriceRef;
     }
+
     if (!formData.clientPrice) {
         newErrors.clientPrice = "مطلوب";
         if(!firstErrorField) firstErrorField = clientPriceRef;
@@ -210,13 +213,14 @@ export default function TransactionsPage() {
     const finalType = inputTypeMode === 'manual' ? formData.manualType : formData.selectedType;
     const durationDays = parseInt(formData.duration) || 0;
     const clientP = parseFloat(formData.clientPrice) || 0;
+    const agentP = formData.agent === 'إنجاز بنفسي' ? 0 : (parseFloat(formData.agentPrice) || 0);
     
     const newTx: Transaction = {
       id: Date.now(),
       serialNo: String(transactions.length + 1).padStart(4, '0'),
       type: finalType,
       clientPrice: formData.clientPrice,
-      agentPrice: formData.agentPrice,
+      agentPrice: formData.agent === 'إنجاز بنفسي' ? '0' : formData.agentPrice,
       agent: formData.agent,
       clientName: formData.clientName || 'عميل عام',
       duration: formData.duration,
@@ -492,112 +496,7 @@ export default function TransactionsPage() {
             {/* Compact Form Grid */}
             <div className="grid gap-3 py-2">
               
-              {/* 1. Transaction Type */}
-              <div className="relative border-2 border-red-400/30 rounded-xl p-3 bg-white/30">
-                 <Label className="text-gray-700 font-bold text-xs mb-2 block">نوع المعاملة</Label>
-                 
-                 <div className="flex bg-[#eef2f6] p-1 rounded-lg shadow-3d-inset mb-3">
-                    <button 
-                        onClick={() => setInputTypeMode('manual')}
-                        className={cn(
-                            "flex-1 py-1 text-xs font-bold rounded-md transition-all",
-                            inputTypeMode === 'manual' ? "bg-white shadow-sm text-blue-600" : "text-gray-400"
-                        )}
-                    >
-                        كتابة يدوية
-                    </button>
-                    <button 
-                        onClick={() => setInputTypeMode('select')}
-                        className={cn(
-                            "flex-1 py-1 text-xs font-bold rounded-md transition-all",
-                            inputTypeMode === 'select' ? "bg-white shadow-sm text-blue-600" : "text-gray-400"
-                        )}
-                    >
-                        اختر من قائمة
-                    </button>
-                 </div>
-
-                 {inputTypeMode === 'manual' ? (
-                    <div className="relative">
-                        <Input 
-                            ref={manualTypeRef}
-                            placeholder="اكتب المعاملة هنا.. مثلاً" 
-                            value={formData.manualType}
-                            onChange={(e) => {
-                                setFormData({...formData, manualType: e.target.value});
-                                if(errors.type) setErrors({...errors, type: ''});
-                            }}
-                            onKeyDown={(e) => handleKeyDown(e, agentPriceRef)}
-                            className="bg-[#eef2f6] shadow-3d-inset border-none h-10 text-sm animate-pulse"
-                        />
-                    </div>
-                 ) : (
-                    <Select 
-                        onValueChange={(val) => {
-                            setFormData({...formData, selectedType: val});
-                            if(errors.type) setErrors({...errors, type: ''});
-                        }}
-                    >
-                        <SelectTrigger className="h-10 rounded-xl bg-[#eef2f6] border-none shadow-3d-inset text-right flex-row-reverse text-sm [&>svg]:text-red-500 [&>svg]:animate-pulse">
-                        <SelectValue placeholder="اختر معاملة..." />
-                        </SelectTrigger>
-                        <SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">
-                        {transactionTypesList.map((type) => (
-                            <SelectItem key={type} value={type} className="text-right cursor-pointer focus:bg-white/50 my-1">{type}</SelectItem>
-                        ))}
-                        </SelectContent>
-                    </Select>
-                 )}
-                 {errors.type && <p className="text-red-500 text-[10px] mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {errors.type}</p>}
-              </div>
-
-              {/* 2. Prices */}
-              <div className="grid grid-cols-2 gap-3">
-                 <div className="space-y-1">
-                  <Label className="text-gray-700 font-bold text-xs">سعر المعقب</Label>
-                  <div className="relative">
-                    <Input 
-                      ref={agentPriceRef}
-                      type="number" 
-                      placeholder="0" 
-                      value={formData.agentPrice}
-                      onChange={(e) => {
-                          setFormData({...formData, agentPrice: e.target.value});
-                          if(errors.agentPrice) setErrors({...errors, agentPrice: ''});
-                      }}
-                      onKeyDown={(e) => handleKeyDown(e, clientPriceRef)}
-                      className={cn(
-                          "pl-10 text-left font-bold text-gray-600 h-10 text-sm",
-                          errors.agentPrice ? "border border-red-400" : "border-none"
-                      )}
-                    />
-                    <span className="absolute left-3 top-2.5 text-xs font-bold text-gray-400">ر.س</span>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-gray-700 font-bold text-xs">السعر للعميل</Label>
-                  <div className="relative">
-                    <Input 
-                      ref={clientPriceRef}
-                      type="number" 
-                      placeholder="0" 
-                      value={formData.clientPrice}
-                      onChange={(e) => {
-                          setFormData({...formData, clientPrice: e.target.value});
-                          if(errors.clientPrice) setErrors({...errors, clientPrice: ''});
-                      }}
-                      onKeyDown={(e) => handleKeyDown(e, durationRef)}
-                      className={cn(
-                        "pl-10 text-left font-bold text-blue-600 h-10 text-sm",
-                        errors.clientPrice ? "border border-red-400" : "border-none"
-                      )}
-                    />
-                    <span className="absolute left-3 top-2.5 text-xs font-bold text-blue-400">ر.س</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* 3. Agent Selection with Add Button */}
+              {/* 1. Agent Selection (Moved Up) */}
               <div className="space-y-1">
                 <Label className="text-gray-700 font-bold text-xs">اختر المعقب</Label>
                 <div className="flex gap-2">
@@ -677,6 +576,115 @@ export default function TransactionsPage() {
                         </DialogContent>
                     </Dialog>
                 </div>
+              </div>
+
+              {/* 2. Prices */}
+              <div className="grid grid-cols-2 gap-3">
+                 {/* Conditionally Render Agent Price */}
+                 {formData.agent !== 'إنجاز بنفسي' && (
+                    <div className="space-y-1">
+                      <Label className="text-gray-700 font-bold text-xs">سعر المعقب</Label>
+                      <div className="relative">
+                        <Input 
+                          ref={agentPriceRef}
+                          type="number" 
+                          placeholder="0" 
+                          value={formData.agentPrice}
+                          onChange={(e) => {
+                              setFormData({...formData, agentPrice: e.target.value});
+                              if(errors.agentPrice) setErrors({...errors, agentPrice: ''});
+                          }}
+                          onKeyDown={(e) => handleKeyDown(e, clientPriceRef)}
+                          className={cn(
+                              "pl-10 text-left font-bold text-gray-600 h-10 text-sm",
+                              errors.agentPrice ? "border border-red-400" : "border-none"
+                          )}
+                        />
+                        <span className="absolute left-3 top-2.5 text-xs font-bold text-gray-400">ر.س</span>
+                      </div>
+                    </div>
+                 )}
+                
+                <div className={cn("space-y-1", formData.agent === 'إنجاز بنفسي' ? "col-span-2" : "")}>
+                  <Label className="text-gray-700 font-bold text-xs">السعر للعميل</Label>
+                  <div className="relative">
+                    <Input 
+                      ref={clientPriceRef}
+                      type="number" 
+                      placeholder="0" 
+                      value={formData.clientPrice}
+                      onChange={(e) => {
+                          setFormData({...formData, clientPrice: e.target.value});
+                          if(errors.clientPrice) setErrors({...errors, clientPrice: ''});
+                      }}
+                      onKeyDown={(e) => handleKeyDown(e, durationRef)}
+                      className={cn(
+                        "pl-10 text-left font-bold text-blue-600 h-10 text-sm",
+                        errors.clientPrice ? "border border-red-400" : "border-none"
+                      )}
+                    />
+                    <span className="absolute left-3 top-2.5 text-xs font-bold text-blue-400">ر.س</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Transaction Type */}
+              <div className="relative border-2 border-red-400/30 rounded-xl p-3 bg-white/30">
+                 <Label className="text-gray-700 font-bold text-xs mb-2 block">نوع المعاملة</Label>
+                 
+                 <div className="flex bg-[#eef2f6] p-1 rounded-lg shadow-3d-inset mb-3">
+                    <button 
+                        onClick={() => setInputTypeMode('manual')}
+                        className={cn(
+                            "flex-1 py-1 text-xs font-bold rounded-md transition-all",
+                            inputTypeMode === 'manual' ? "bg-white shadow-sm text-blue-600" : "text-gray-400"
+                        )}
+                    >
+                        كتابة يدوية
+                    </button>
+                    <button 
+                        onClick={() => setInputTypeMode('select')}
+                        className={cn(
+                            "flex-1 py-1 text-xs font-bold rounded-md transition-all",
+                            inputTypeMode === 'select' ? "bg-white shadow-sm text-blue-600" : "text-gray-400"
+                        )}
+                    >
+                        اختر من قائمة
+                    </button>
+                 </div>
+
+                 {inputTypeMode === 'manual' ? (
+                    <div className="relative">
+                        <Input 
+                            ref={manualTypeRef}
+                            placeholder="اكتب المعاملة هنا.. مثلاً" 
+                            value={formData.manualType}
+                            onChange={(e) => {
+                                setFormData({...formData, manualType: e.target.value});
+                                if(errors.type) setErrors({...errors, type: ''});
+                            }}
+                            onKeyDown={(e) => handleKeyDown(e, agentPriceRef)}
+                            className="bg-[#eef2f6] shadow-3d-inset border-none h-10 text-sm animate-pulse"
+                        />
+                    </div>
+                 ) : (
+                    <Select 
+                        onValueChange={(val) => {
+                            setFormData({...formData, selectedType: val});
+                            if(errors.type) setErrors({...errors, type: ''});
+                        }}
+                    >
+                        <SelectTrigger className="h-10 rounded-xl bg-[#eef2f6] border-none shadow-3d-inset text-right flex-row-reverse text-sm [&>svg]:text-red-500 [&>svg]:animate-pulse">
+                        <SelectValue placeholder="اختر معاملة..." />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[#eef2f6] shadow-3d border-none text-right" dir="rtl">
+                        {transactionTypesList.map((type) => (
+                            <SelectItem key={type} value={type} className="text-right cursor-pointer focus:bg-white/50 my-1">{type}</SelectItem>
+                        ))}
+                        </SelectContent>
+                    </Select>
+                 )}
+                 {errors.type && <p className="text-red-500 text-[10px] mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {errors.type}</p>}
               </div>
 
                {/* 4. Client Selection with Add Button */}
@@ -831,7 +839,7 @@ export default function TransactionsPage() {
               <Dialog key={tx.id}>
                 <DialogTrigger asChild>
                     <Card className={cn(
-                        "border-none shadow-3d bg-[#eef2f6] overflow-hidden transition-all cursor-pointer hover:scale-[1.01]",
+                        "border-none shadow-3d bg-[#eef2f6] overflow-hidden transition-all cursor-pointer hover:scale-[1.01] group relative",
                         tx.status === 'completed' ? "opacity-75" : "",
                         tx.status === 'cancelled' ? "opacity-60 grayscale" : ""
                     )}>
@@ -861,6 +869,13 @@ export default function TransactionsPage() {
                             <div className="p-4 flex items-center justify-between gap-4">
                                 <div className="w-full bg-[#eef2f6] shadow-3d-inset rounded-xl p-3 text-center flex-1">
                                     <CountdownTimer targetDate={tx.targetDate} status={tx.status} />
+                                </div>
+                            </div>
+
+                            {/* Eye Icon Overlay (Appears on Hover) - Updated to be more visible/colored */}
+                            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
+                                <div className="w-14 h-14 bg-white/90 backdrop-blur-sm rounded-full shadow-lg flex items-center justify-center text-blue-600 border-2 border-blue-100 animate-in zoom-in">
+                                    <Eye className="w-8 h-8" />
                                 </div>
                             </div>
 
