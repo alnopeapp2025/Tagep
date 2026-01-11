@@ -1,15 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, UserCheck, Plus, Search, FileText, Phone, MessageCircle, AlertCircle, Wallet, CheckCircle2, Send, X, Contact } from 'lucide-react';
+import { ArrowRight, UserCheck, Plus, Search, FileText, Phone, MessageCircle, Wallet, CheckCircle2, Send, X, Contact } from 'lucide-react';
 import { 
   getStoredAgents, saveStoredAgents, Agent, 
   getStoredTransactions, Transaction, saveStoredTransactions,
   getStoredBalances, saveStoredBalances, BANKS_LIST,
   getStoredAgentTransfers, saveStoredAgentTransfers, AgentTransferRecord,
   getStoredPendingBalances, saveStoredPendingBalances,
-  getCurrentUser, User, addAgentToCloud, fetchAgentsFromCloud
+  getCurrentUser, User
 } from '@/lib/store';
-import { supabase } from '@/lib/supabase';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
@@ -43,51 +42,10 @@ export default function AgentsPage() {
     setCurrentUser(user);
     setBalances(getStoredBalances());
 
-    // Strategy: Load Local first for instant display, then Cloud for sync
+    // Load Agents from Local Storage ONLY (Mirroring Clients logic)
     const localAgents = getStoredAgents();
     setAgents(localAgents);
-
-    if (user) {
-        // Fetch from Cloud
-        fetchAgentsFromCloud(user.id).then(data => {
-            if (data && data.length > 0) {
-                setAgents(data);
-                // Sync local
-                saveStoredAgents(data);
-            }
-        });
-    }
   }, []);
-
-  // Realtime Subscription
-  useEffect(() => {
-    if (!currentUser) return;
-
-    const channel = supabase
-      .channel('agents-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'agents',
-          filter: `user_id=eq.${currentUser.id}`
-        },
-        (payload) => {
-          // On realtime update, refresh list
-          fetchAgentsFromCloud(currentUser.id).then(data => {
-             setAgents(data);
-             saveStoredAgents(data);
-          });
-          console.log('Realtime update:', payload);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [currentUser]);
 
   // Calculate Total Due whenever transactions change
   useEffect(() => {
@@ -166,24 +124,19 @@ export default function AgentsPage() {
       createdAt: Date.now()
     };
 
-    // 1. Instant UI Update (Optimistic)
+    // 1. Update State (Instant UI)
     const updatedAgents = [newAgent, ...agents];
     setAgents(updatedAgents);
 
-    // 2. ALWAYS Save to Local Storage (Persistence - Copying Client Logic)
+    // 2. Save to Local Storage (Persistence)
     saveStoredAgents(updatedAgents);
 
-    // 3. Close Dialog Immediately
+    // 3. Reset & Close
     setNewAgentName('');
     setNewAgentPhone('');
     setNewAgentWhatsapp('');
     setErrors({ phone: '', whatsapp: '' });
     setOpen(false);
-
-    // 4. Background Sync
-    if (currentUser) {
-        addAgentToCloud(newAgent, currentUser.id);
-    }
   };
 
   const handleAgentClick = (agent: Agent) => {

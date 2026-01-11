@@ -26,8 +26,7 @@ import {
   getStoredBalances, saveStoredBalances, 
   getStoredPendingBalances, saveStoredPendingBalances,
   BANKS_LIST, getStoredClients, saveStoredClients, Client, getStoredAgents, saveStoredAgents, Agent,
-  getCurrentUser, User,
-  addAgentToCloud, fetchAgentsFromCloud // Imported Cloud Functions
+  getCurrentUser, User
 } from '@/lib/store';
 
 // --- Types ---
@@ -151,25 +150,11 @@ export default function TransactionsPage() {
     const loadedTxs = getStoredTransactions();
     setTransactions(loadedTxs);
     
-    // Load Clients (Local for now as per store)
+    // Load Clients (Local)
     setClients(getStoredClients());
 
-    // Load Agents
-    // Strategy: Load Local first for speed, then Cloud for sync
-    const localAgents = getStoredAgents();
-    setAgents(localAgents);
-
-    if (user) {
-        fetchAgentsFromCloud(user.id).then(data => {
-            // Merge cloud data if needed, or just use it
-            // For now, we prefer cloud if available, but local is fallback
-            if (data && data.length > 0) {
-                setAgents(data);
-                // Sync local with cloud data for consistency
-                saveStoredAgents(data);
-            }
-        });
-    }
+    // Load Agents (Local ONLY)
+    setAgents(getStoredAgents());
 
     updateBalancesDisplay();
   }, []);
@@ -395,20 +380,15 @@ export default function TransactionsPage() {
       createdAt: Date.now()
     };
 
-    // 1. Instant UI Update (Optimistic) - Just like Clients
+    // 1. Instant UI Update
     const updatedAgents = [newAgent, ...agents];
     setAgents(updatedAgents);
     setFormData(prev => ({ ...prev, agent: newAgentName }));
 
-    // 2. ALWAYS Save to Local Storage (Persistence) - Just like Clients
+    // 2. Save to Local Storage ONLY
     saveStoredAgents(updatedAgents);
 
-    // 3. Background Cloud Sync (If logged in)
-    if (currentUser) {
-        addAgentToCloud(newAgent, currentUser.id);
-    }
-
-    // 4. Reset Form
+    // 3. Reset Form
     setNewAgentName('');
     setNewAgentPhone('');
     setNewAgentWhatsapp('');
