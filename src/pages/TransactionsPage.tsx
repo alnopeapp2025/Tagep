@@ -26,8 +26,7 @@ import {
   getStoredBalances, saveStoredBalances, 
   getStoredPendingBalances, saveStoredPendingBalances,
   BANKS_LIST, getStoredClients, saveStoredClients, Client, getStoredAgents, saveStoredAgents, Agent,
-  getCurrentUser, User,
-  addClientToCloud, addAgentToCloud, fetchClientsFromCloud, fetchAgentsFromCloud
+  getCurrentUser, User
 } from '@/lib/store';
 
 // --- Types ---
@@ -151,15 +150,11 @@ export default function TransactionsPage() {
     const loadedTxs = getStoredTransactions();
     setTransactions(loadedTxs);
     
-    if (user) {
-        // Fetch from Cloud if logged in
-        fetchClientsFromCloud(user.id).then(data => setClients(data));
-        fetchAgentsFromCloud(user.id).then(data => setAgents(data));
-    } else {
-        // Local fallback for visitors
-        setClients(getStoredClients());
-        setAgents(getStoredAgents());
-    }
+    // Load Clients (Local)
+    setClients(getStoredClients());
+
+    // Load Agents (Local ONLY) - No Cloud Logic
+    setAgents(getStoredAgents());
 
     updateBalancesDisplay();
   }, []);
@@ -319,7 +314,7 @@ export default function TransactionsPage() {
     }
   };
 
-  const handleAddClientQuick = async () => {
+  const handleAddClientQuick = () => {
     let hasError = false;
     const newErrors = { phone: '', whatsapp: '' };
 
@@ -345,17 +340,9 @@ export default function TransactionsPage() {
       whatsapp: newClientWhatsapp ? `966${newClientWhatsapp}` : '',
       createdAt: Date.now()
     };
-    
-    // 1. Optimistic UI Update
     const updated = [newClient, ...clients];
     setClients(updated);
-    
-    // 2. Save to Cloud or Local
-    if (currentUser) {
-        await addClientToCloud(newClient, currentUser.id);
-    } else {
-        saveStoredClients(updated);
-    }
+    saveStoredClients(updated);
     
     setFormData(prev => ({ ...prev, clientName: newClientName }));
     setNewClientName('');
@@ -398,12 +385,8 @@ export default function TransactionsPage() {
     setAgents(updatedAgents);
     setFormData(prev => ({ ...prev, agent: newAgentName }));
 
-    // 2. Save to Cloud or Local
-    if (currentUser) {
-        await addAgentToCloud(newAgent, currentUser.id);
-    } else {
-        saveStoredAgents(updatedAgents);
-    }
+    // 2. Save to Local Storage ONLY
+    saveStoredAgents(updatedAgents);
 
     // 3. Reset Form
     setNewAgentName('');
