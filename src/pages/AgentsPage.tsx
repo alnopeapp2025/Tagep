@@ -6,8 +6,11 @@ import {
   getStoredTransactions, saveStoredTransactions, Transaction,
   getStoredBalances, saveStoredBalances, BANKS_LIST,
   getStoredAgentTransfers, saveStoredAgentTransfers, AgentTransferRecord,
-  getStoredPendingBalances, saveStoredPendingBalances
+  getStoredPendingBalances, saveStoredPendingBalances,
+  getCurrentUser, User,
+  addAgentToCloud, fetchAgentsFromCloud
 } from '@/lib/store';
+import { supabase } from '@/lib/supabase';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
@@ -16,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 export default function AgentsPage() {
   const navigate = useNavigate();
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   
   // Form States
   const [newAgentName, setNewAgentName] = useState('');
@@ -36,14 +40,48 @@ export default function AgentsPage() {
   const [totalDue, setTotalDue] = useState(0);
 
   useEffect(() => {
-    // FORCE LOCAL STORAGE ONLY
-    // No checking for currentUser, no fetching from cloud.
-    // This ensures consistency for Visitors AND Registered Users.
-    const localAgents = getStoredAgents();
-    setAgents(localAgents);
-    
+    const user = getCurrentUser();
+    setCurrentUser(user);
     setBalances(getStoredBalances());
+
+    if (user) {
+        // Fetch from Cloud if logged in (Privacy: Filter by user_id)
+        fetchAgentsFromCloud(user.id).then(data => {
+            setAgents(data);
+        });
+    } else {
+        // Load Agents from Local Storage (Visitor)
+        const localAgents = getStoredAgents();
+        setAgents(localAgents);
+    }
   }, []);
+
+  // Realtime Subscription Effect for Agents
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const channel = supabase
+      .channel('agents-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'agents',
+          filter: `user_id=eq.${currentUser.id}`
+        },
+        (payload) => {
+          fetchAgentsFromCloud(currentUser.id).then(data => {
+            setAgents(data);
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUser]);
 
   // Calculate Total Due whenever transactions change
   useEffect(() => {
@@ -95,7 +133,7 @@ export default function AgentsPage() {
     }
   };
 
-  const handleAddAgent = () => {
+  const handleAddAgent = async () => {
     let hasError = false;
     const newErrors = { phone: '', whatsapp: '' };
 
@@ -122,12 +160,20 @@ export default function AgentsPage() {
       createdAt: Date.now()
     };
 
-    // 1. Update State (Instant UI)
+    // 1. Optimistic UI Update (Instant)
     const updatedAgents = [newAgent, ...agents];
     setAgents(updatedAgents);
 
-    // 2. Save to Local Storage (Persistence)
-    saveStoredAgents(updatedAgents);
+    if (currentUser) {
+        // 2. Save to Cloud (Authenticated)
+        const success = await addAgentToCloud(newAgent, currentUser.id);
+        if (!success) {
+             console.error("فشل حفظ المعقب في السحابة.");
+        }
+    } else {
+        // 2. Save to Local (Visitor)
+        saveStoredAgents(updatedAgents);
+    }
 
     // 3. Reset & Close
     setNewAgentName('');
