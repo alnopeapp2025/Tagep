@@ -153,7 +153,7 @@ export default function TransactionsPage() {
     // Load Clients (Local)
     setClients(getStoredClients());
 
-    // Load Agents (Local ONLY)
+    // Load Agents (Local ONLY) - No Cloud Logic
     setAgents(getStoredAgents());
 
     updateBalancesDisplay();

@@ -247,7 +247,9 @@ export default function Dashboard() {
             <h1 className="text-2xl sm:text-4xl font-black text-gray-800 mb-1 text-shadow">
               برنامج حسابات المعقبين
             </h1>
-            <p className="text-gray-500 font-medium text-sm sm:text-base">لوحة التحكم الرئيسية</p>
+            <p className="text-gray-500 font-medium text-sm sm:text-base">
+              لوحة التحكم الرئيسية <span className="text-red-600 text-xs font-bold mr-1">v. 1</span>
+            </p>
           </div>
           
           <div className="flex gap-3 items-center">

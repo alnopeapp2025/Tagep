@@ -3,11 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowRight, UserCheck, Plus, Search, FileText, Phone, MessageCircle, Wallet, CheckCircle2, Send, X, Contact } from 'lucide-react';
 import { 
   getStoredAgents, saveStoredAgents, Agent, 
-  getStoredTransactions, Transaction, saveStoredTransactions,
+  getStoredTransactions, saveStoredTransactions, Transaction,
   getStoredBalances, saveStoredBalances, BANKS_LIST,
   getStoredAgentTransfers, saveStoredAgentTransfers, AgentTransferRecord,
-  getStoredPendingBalances, saveStoredPendingBalances,
-  getCurrentUser, User
+  getStoredPendingBalances, saveStoredPendingBalances
 } from '@/lib/store';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -17,7 +16,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 export default function AgentsPage() {
   const navigate = useNavigate();
   const [agents, setAgents] = useState<Agent[]>([]);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
   
   // Form States
   const [newAgentName, setNewAgentName] = useState('');
@@ -38,13 +36,13 @@ export default function AgentsPage() {
   const [totalDue, setTotalDue] = useState(0);
 
   useEffect(() => {
-    const user = getCurrentUser();
-    setCurrentUser(user);
-    setBalances(getStoredBalances());
-
-    // Load Agents from Local Storage ONLY (Mirroring Clients logic)
+    // FORCE LOCAL STORAGE ONLY
+    // No checking for currentUser, no fetching from cloud.
+    // This ensures consistency for Visitors AND Registered Users.
     const localAgents = getStoredAgents();
     setAgents(localAgents);
+    
+    setBalances(getStoredBalances());
   }, []);
 
   // Calculate Total Due whenever transactions change
