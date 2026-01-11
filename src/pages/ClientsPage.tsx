@@ -7,7 +7,8 @@ import {
   BANKS_LIST,
   getStoredClientRefunds, saveStoredClientRefunds, ClientRefundRecord,
   getStoredPendingBalances, saveStoredPendingBalances,
-  getCurrentUser, User
+  getCurrentUser, User,
+  addClientToCloud, fetchClientsFromCloud
 } from '@/lib/store';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -17,7 +18,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 export default function ClientsPage() {
   const navigate = useNavigate();
   const [clients, setClients] = useState<Client[]>([]);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   
   // Form States
@@ -43,9 +43,16 @@ export default function ClientsPage() {
     setCurrentUser(user);
     setPendingBalances(getStoredPendingBalances());
 
-    // Load Clients from Local Storage
-    const localClients = getStoredClients();
-    setClients(localClients);
+    if (user) {
+        // Fetch from Cloud if logged in (Privacy: Filter by user_id)
+        fetchClientsFromCloud(user.id).then(data => {
+            setClients(data);
+        });
+    } else {
+        // Load Clients from Local Storage (Visitor)
+        const localClients = getStoredClients();
+        setClients(localClients);
+    }
   }, []);
 
   // Calculate Total Refund Due
@@ -96,7 +103,7 @@ export default function ClientsPage() {
     }
   };
 
-  const handleAddClient = () => {
+  const handleAddClient = async () => {
     let hasError = false;
     const newErrors = { phone: '', whatsapp: '' };
 
@@ -123,9 +130,17 @@ export default function ClientsPage() {
       createdAt: Date.now()
     };
 
+    // 1. Optimistic UI Update (Instant)
     const updatedClients = [newClient, ...clients];
     setClients(updatedClients);
-    saveStoredClients(updatedClients);
+
+    if (currentUser) {
+        // 2. Save to Cloud (Authenticated)
+        await addClientToCloud(newClient, currentUser.id);
+    } else {
+        // 2. Save to Local (Visitor)
+        saveStoredClients(updatedClients);
+    }
 
     setNewClientName('');
     setNewClientPhone('');

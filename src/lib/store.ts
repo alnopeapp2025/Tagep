@@ -401,6 +401,60 @@ export const fetchAgentsFromCloud = async (userId: number): Promise<Agent[]> => 
   }
 };
 
+// --- Client Management (Cloud) ---
+
+export const addClientToCloud = async (client: Client, userId: number) => {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .insert([
+        {
+          user_id: userId, // Link to current user
+          name: client.name,
+          phone: client.phone,
+          whatsapp: client.whatsapp
+        }
+      ])
+      .select();
+
+    if (error) {
+      console.error('Supabase Insert Error (Clients):', JSON.stringify(error, null, 2));
+      return false;
+    }
+    
+    return true;
+  } catch (err) {
+    console.error('Error syncing client (Exception):', err);
+    return false;
+  }
+};
+
+export const fetchClientsFromCloud = async (userId: number): Promise<Client[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('user_id', userId) // Filter by user_id for privacy
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching clients:', error);
+      return [];
+    }
+
+    return data.map((item: any) => ({
+      id: item.id,
+      name: item.name,
+      phone: item.phone,
+      whatsapp: item.whatsapp,
+      createdAt: new Date(item.created_at).getTime()
+    }));
+  } catch (err) {
+    console.error('Fetch clients exception:', err);
+    return [];
+  }
+};
+
 
 // Transactions
 export const getStoredTransactions = (): Transaction[] => {
