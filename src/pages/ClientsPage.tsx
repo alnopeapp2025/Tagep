@@ -10,6 +10,7 @@ import {
   getCurrentUser, User,
   addClientToCloud, fetchClientsFromCloud
 } from '@/lib/store';
+import { supabase } from '@/lib/supabase'; // Import Supabase Client for Realtime
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
@@ -54,6 +55,33 @@ export default function ClientsPage() {
         setClients(localClients);
     }
   }, []);
+
+  // Realtime Subscription Effect for Clients
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const channel = supabase
+      .channel('clients-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'clients',
+          filter: `user_id=eq.${currentUser.id}`
+        },
+        (payload) => {
+          fetchClientsFromCloud(currentUser.id).then(data => {
+            setClients(data);
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUser]);
 
   // Calculate Total Refund Due
   useEffect(() => {
@@ -136,7 +164,10 @@ export default function ClientsPage() {
 
     if (currentUser) {
         // 2. Save to Cloud (Authenticated)
-        await addClientToCloud(newClient, currentUser.id);
+        const success = await addClientToCloud(newClient, currentUser.id);
+        if (!success) {
+             alert("فشل حفظ العميل في السحابة. يرجى التحقق من الاتصال.");
+        }
     } else {
         // 2. Save to Local (Visitor)
         saveStoredClients(updatedClients);
