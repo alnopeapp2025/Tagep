@@ -29,6 +29,7 @@ import {
   getCurrentUser, User,
   addClientToCloud, addAgentToCloud, fetchClientsFromCloud, fetchAgentsFromCloud,
   addTransactionToCloud, fetchTransactionsFromCloud, updateTransactionStatusInCloud,
+  fetchAccountsFromCloud, updateAccountInCloud,
   Transaction
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
@@ -70,7 +71,7 @@ const CountdownTimer = ({ targetDate, status }: { targetDate: number, status: st
   return <span className="font-mono font-bold text-blue-600 text-xs sm:text-sm" dir="rtl">{timeLeft}</span>;
 };
 
-function TransactionsPage() {
+export default function TransactionsPage() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   
@@ -80,6 +81,10 @@ function TransactionsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [feedbackMsg, setFeedbackMsg] = useState<{type: 'success' | 'error', text: string} | null>(null);
+
+  // Financial State
+  const [balances, setBalances] = useState<Record<string, number>>({});
+  const [pendingBalances, setPendingBalances] = useState<Record<string, number>>({});
 
   const [addClientOpen, setAddClientOpen] = useState(false);
   const [newClientName, setNewClientName] = useState('');
@@ -122,13 +127,22 @@ function TransactionsPage() {
         fetchTransactionsFromCloud(user.id).then(data => setTransactions(data));
         fetchClientsFromCloud(user.id).then(data => setClients(data));
         fetchAgentsFromCloud(user.id).then(data => setAgents(data));
+        // Fetch Accounts for integrated logic
+        fetchAccountsFromCloud(user.id).then(data => {
+            setBalances(data.balances);
+            setPendingBalances(data.pending);
+            updateBalancesDisplay(data.balances);
+        });
     } else {
         setTransactions(getStoredTransactions());
         setClients(getStoredClients());
         setAgents(getStoredAgents());
+        const localBal = getStoredBalances();
+        const localPending = getStoredPendingBalances();
+        setBalances(localBal);
+        setPendingBalances(localPending);
+        updateBalancesDisplay(localBal);
     }
-
-    updateBalancesDisplay();
   }, []);
 
   useEffect(() => {
@@ -157,9 +171,8 @@ function TransactionsPage() {
     };
   }, [currentUser]);
 
-  const updateBalancesDisplay = () => {
-    const bals = getStoredBalances();
-    const total = Object.values(bals).reduce((a, b) => a + b, 0);
+  const updateBalancesDisplay = (currentBals: Record<string, number>) => {
+    const total = Object.values(currentBals).reduce((a, b) => a + b, 0);
     setOfficeBalance(total);
   };
 
@@ -236,21 +249,22 @@ function TransactionsPage() {
       clientRefunded: false
     };
 
-    const pendingBalances = getStoredPendingBalances();
-    if (pendingBalances[formData.paymentMethod] !== undefined) {
-        pendingBalances[formData.paymentMethod] += clientP;
-    } else {
-        pendingBalances[formData.paymentMethod] = clientP;
-    }
-    saveStoredPendingBalances(pendingBalances);
+    // Financial Update: Add Client Price to Pending
+    const bank = formData.paymentMethod;
+    const newPending = { ...pendingBalances };
+    newPending[bank] = (newPending[bank] || 0) + clientP;
+    setPendingBalances(newPending);
 
     const updatedTxs = [newTx, ...transactions];
     setTransactions(updatedTxs);
     
     if (currentUser) {
         await addTransactionToCloud(newTx, currentUser.id);
+        // Update Account in Cloud
+        await updateAccountInCloud(currentUser.id, bank, balances[bank] || 0, newPending[bank]);
     } else {
         saveStoredTransactions(updatedTxs);
+        saveStoredPendingBalances(newPending);
     }
 
     setOpen(false);
@@ -409,39 +423,36 @@ function TransactionsPage() {
 
     const clientP = parseFloat(tx.clientPrice) || 0;
     const agentP = parseFloat(tx.agentPrice) || 0;
+    const bank = tx.paymentMethod;
     
-    const pendingBalances = getStoredPendingBalances();
-    const currentBalances = getStoredBalances();
+    const newPending = { ...pendingBalances };
+    const newBalances = { ...balances };
 
+    // Financial Logic
     if (newStatus === 'completed' && tx.status === 'active') {
-        if (pendingBalances[tx.paymentMethod] !== undefined) {
-            pendingBalances[tx.paymentMethod] = Math.max(0, pendingBalances[tx.paymentMethod] - clientP);
-        }
+        // 1. Remove Client Price from Pending
+        newPending[bank] = Math.max(0, (newPending[bank] || 0) - clientP);
         
-        if (pendingBalances[tx.paymentMethod] !== undefined) {
-            pendingBalances[tx.paymentMethod] += agentP;
-        } else {
-            pendingBalances[tx.paymentMethod] = agentP;
-        }
+        // 2. Add Agent Price to Pending (Liability)
+        newPending[bank] = (newPending[bank] || 0) + agentP;
 
-        if (currentBalances[tx.paymentMethod] !== undefined) {
-            currentBalances[tx.paymentMethod] += clientP; 
-        } else {
-            currentBalances[tx.paymentMethod] = clientP;
-        }
+        // 3. Add Client Price to Actual Balance (Revenue)
+        newBalances[bank] = (newBalances[bank] || 0) + clientP;
         
-        saveStoredPendingBalances(pendingBalances);
-        saveStoredBalances(currentBalances);
-        updateBalancesDisplay();
-
         setFeedbackMsg({ type: 'success', text: 'تم إنجاز المعاملة بنجاح' });
-        setTimeout(() => setFeedbackMsg(null), 2000);
     }
 
     if (newStatus === 'cancelled' && tx.status === 'active') {
+         // Remove Client Price from Pending (Will be refunded or lost)
+         newPending[bank] = Math.max(0, (newPending[bank] || 0) - clientP);
+         
          setFeedbackMsg({ type: 'error', text: 'تم الغاء المعامله بنجاح' });
-         setTimeout(() => setFeedbackMsg(null), 2000);
     }
+
+    setPendingBalances(newPending);
+    setBalances(newBalances);
+    updateBalancesDisplay(newBalances);
+    setTimeout(() => setFeedbackMsg(null), 2000);
 
     const updatedTxs = transactions.map(t => 
       t.id === id ? { ...t, status: newStatus } : t
@@ -450,8 +461,11 @@ function TransactionsPage() {
 
     if (currentUser) {
         await updateTransactionStatusInCloud(id, { status: newStatus });
+        await updateAccountInCloud(currentUser.id, bank, newBalances[bank] || 0, newPending[bank] || 0);
     } else {
         saveStoredTransactions(updatedTxs);
+        saveStoredPendingBalances(newPending);
+        saveStoredBalances(newBalances);
     }
   };
 
@@ -1042,5 +1056,3 @@ function TransactionsPage() {
     </>
   );
 }
-
-export default TransactionsPage;
