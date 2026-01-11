@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ command }) => ({
   plugins: [react()],
-  // Updated base path for Custom Domain (Root)
+  // Base path set to root for custom domain (manhobat.com)
   base: '/',
   resolve: {
     alias: {
