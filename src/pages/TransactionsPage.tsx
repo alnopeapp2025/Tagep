@@ -26,8 +26,11 @@ import {
   getStoredBalances, saveStoredBalances, 
   getStoredPendingBalances, saveStoredPendingBalances,
   BANKS_LIST, getStoredClients, saveStoredClients, Client, getStoredAgents, saveStoredAgents, Agent,
-  getCurrentUser, User
+  getCurrentUser, User,
+  addClientToCloud, addAgentToCloud, fetchClientsFromCloud, fetchAgentsFromCloud,
+  addTransactionToCloud, fetchTransactionsFromCloud, updateTransactionStatusInCloud
 } from '@/lib/store';
+import { supabase } from '@/lib/supabase';
 
 // --- Types ---
 export interface Transaction {
@@ -147,17 +150,47 @@ export default function TransactionsPage() {
     const user = getCurrentUser();
     setCurrentUser(user);
 
-    const loadedTxs = getStoredTransactions();
-    setTransactions(loadedTxs);
-    
-    // Load Clients (Local)
-    setClients(getStoredClients());
-
-    // Load Agents (Local ONLY) - No Cloud Logic
-    setAgents(getStoredAgents());
+    if (user) {
+        // Fetch from Cloud if logged in
+        fetchTransactionsFromCloud(user.id).then(data => setTransactions(data));
+        fetchClientsFromCloud(user.id).then(data => setClients(data));
+        fetchAgentsFromCloud(user.id).then(data => setAgents(data));
+    } else {
+        // Local fallback for visitors
+        setTransactions(getStoredTransactions());
+        setClients(getStoredClients());
+        setAgents(getStoredAgents());
+    }
 
     updateBalancesDisplay();
   }, []);
+
+  // Realtime Subscription for Transactions
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const channel = supabase
+      .channel('transactions-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'transactions',
+          filter: `user_id=eq.${currentUser.id}`
+        },
+        (payload) => {
+          fetchTransactionsFromCloud(currentUser.id).then(data => {
+            setTransactions(data);
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUser]);
 
   const updateBalancesDisplay = () => {
     const bals = getStoredBalances();
@@ -214,7 +247,7 @@ export default function TransactionsPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validateForm()) return;
 
     const finalType = inputTypeMode === 'manual' ? formData.manualType : formData.selectedType;
@@ -239,7 +272,7 @@ export default function TransactionsPage() {
       clientRefunded: false
     };
 
-    // Add to Pending Balances
+    // Add to Pending Balances (Local logic for immediate feedback)
     const pendingBalances = getStoredPendingBalances();
     if (pendingBalances[formData.paymentMethod] !== undefined) {
         pendingBalances[formData.paymentMethod] += clientP;
@@ -248,9 +281,18 @@ export default function TransactionsPage() {
     }
     saveStoredPendingBalances(pendingBalances);
 
+    // Optimistic Update
     const updatedTxs = [newTx, ...transactions];
     setTransactions(updatedTxs);
-    saveStoredTransactions(updatedTxs);
+    
+    if (currentUser) {
+        // Save to Cloud (Authenticated)
+        await addTransactionToCloud(newTx, currentUser.id);
+    } else {
+        // Save to Local (Visitor)
+        saveStoredTransactions(updatedTxs);
+    }
+
     setOpen(false);
     
     setFormData({
@@ -314,7 +356,7 @@ export default function TransactionsPage() {
     }
   };
 
-  const handleAddClientQuick = () => {
+  const handleAddClientQuick = async () => {
     let hasError = false;
     const newErrors = { phone: '', whatsapp: '' };
 
@@ -340,9 +382,17 @@ export default function TransactionsPage() {
       whatsapp: newClientWhatsapp ? `966${newClientWhatsapp}` : '',
       createdAt: Date.now()
     };
+    
+    // 1. Optimistic UI Update
     const updated = [newClient, ...clients];
     setClients(updated);
-    saveStoredClients(updated);
+    
+    // 2. Save to Cloud or Local
+    if (currentUser) {
+        await addClientToCloud(newClient, currentUser.id);
+    } else {
+        saveStoredClients(updated);
+    }
     
     setFormData(prev => ({ ...prev, clientName: newClientName }));
     setNewClientName('');
@@ -385,8 +435,12 @@ export default function TransactionsPage() {
     setAgents(updatedAgents);
     setFormData(prev => ({ ...prev, agent: newAgentName }));
 
-    // 2. Save to Local Storage ONLY
-    saveStoredAgents(updatedAgents);
+    // 2. Save to Cloud or Local
+    if (currentUser) {
+        await addAgentToCloud(newAgent, currentUser.id);
+    } else {
+        saveStoredAgents(updatedAgents);
+    }
 
     // 3. Reset Form
     setNewAgentName('');
@@ -396,7 +450,7 @@ export default function TransactionsPage() {
     setAddAgentOpen(false);
   };
 
-  const updateStatus = (id: number, newStatus: 'completed' | 'cancelled') => {
+  const updateStatus = async (id: number, newStatus: 'completed' | 'cancelled') => {
     const tx = transactions.find(t => t.id === id);
     if (!tx) return;
 
@@ -444,11 +498,19 @@ export default function TransactionsPage() {
          setTimeout(() => setFeedbackMsg(null), 2000);
     }
 
+    // Optimistic Update
     const updatedTxs = transactions.map(t => 
       t.id === id ? { ...t, status: newStatus } : t
     );
     setTransactions(updatedTxs);
-    saveStoredTransactions(updatedTxs);
+
+    if (currentUser) {
+        // Update in Cloud
+        await updateTransactionStatusInCloud(id, { status: newStatus });
+    } else {
+        // Update Locally
+        saveStoredTransactions(updatedTxs);
+    }
   };
 
   // --- Invoice Printing Logic ---

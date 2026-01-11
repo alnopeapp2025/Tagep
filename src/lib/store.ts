@@ -276,6 +276,103 @@ export const logoutUser = () => {
   localStorage.removeItem(CURRENT_USER_KEY);
 };
 
+// --- Transaction Management (Cloud) ---
+
+export const addTransactionToCloud = async (tx: Transaction, userId: number) => {
+  try {
+    const { data, error } = await supabase
+      .from('transactions')
+      .insert([
+        {
+          user_id: userId,
+          serial_no: tx.serialNo,
+          type: tx.type,
+          client_price: tx.clientPrice,
+          agent_price: tx.agentPrice,
+          agent: tx.agent,
+          client_name: tx.clientName,
+          duration: tx.duration,
+          payment_method: tx.paymentMethod,
+          created_at: tx.createdAt,
+          target_date: tx.targetDate,
+          status: tx.status,
+          agent_paid: tx.agentPaid || false,
+          client_refunded: tx.clientRefunded || false
+        }
+      ])
+      .select();
+
+    if (error) {
+      console.error('Supabase Insert Error (Transactions):', JSON.stringify(error, null, 2));
+      return false;
+    }
+    
+    return true;
+  } catch (err) {
+    console.error('Error syncing transaction (Exception):', err);
+    return false;
+  }
+};
+
+export const fetchTransactionsFromCloud = async (userId: number): Promise<Transaction[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching transactions:', error);
+      return [];
+    }
+
+    return data.map((item: any) => ({
+      id: item.id,
+      serialNo: item.serial_no,
+      type: item.type,
+      clientPrice: item.client_price,
+      agentPrice: item.agent_price,
+      agent: item.agent,
+      clientName: item.client_name,
+      duration: item.duration,
+      paymentMethod: item.payment_method,
+      createdAt: Number(item.created_at),
+      targetDate: Number(item.target_date),
+      status: item.status,
+      agentPaid: item.agent_paid,
+      clientRefunded: item.client_refunded
+    }));
+  } catch (err) {
+    console.error('Fetch transactions exception:', err);
+    return [];
+  }
+};
+
+export const updateTransactionStatusInCloud = async (id: number, updates: Partial<Transaction>) => {
+    // Map updates to snake_case
+    const dbUpdates: any = {};
+    if (updates.status) dbUpdates.status = updates.status;
+    if (updates.agentPaid !== undefined) dbUpdates.agent_paid = updates.agentPaid;
+    if (updates.clientRefunded !== undefined) dbUpdates.client_refunded = updates.clientRefunded;
+
+    try {
+        const { error } = await supabase
+            .from('transactions')
+            .update(dbUpdates)
+            .eq('id', id);
+        
+        if (error) {
+            console.error('Update transaction error:', error);
+            return false;
+        }
+        return true;
+    } catch (err) {
+        console.error('Update transaction exception:', err);
+        return false;
+    }
+}
+
 // --- Expense Management (Cloud) ---
 
 export const addExpenseToCloud = async (expense: Expense, userId: number) => {
