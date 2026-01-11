@@ -13,7 +13,7 @@ import AchieversHub from './pages/AchieversHub';
 
 function App() {
   return (
-    <Router basename="/Tagep">
+    <Router basename="/">
       <div className="min-h-screen bg-[#eef2f6] p-4 sm:p-8" dir="rtl">
         <Routes>
           <Route path="/" element={<Dashboard />} />

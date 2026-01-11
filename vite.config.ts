@@ -4,8 +4,8 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ command }) => ({
   plugins: [react()],
-  // Updated base path for GitHub Pages subdirectory
-  base: '/Tagep/',
+  // Updated base path for Custom Domain (Root)
+  base: '/',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
