@@ -13,7 +13,7 @@ import AchieversHub from './pages/AchieversHub';
 
 function App() {
   return (
-    <Router basename={import.meta.env.BASE_URL}>
+    <Router basename="/Tagep">
       <div className="min-h-screen bg-[#eef2f6] p-4 sm:p-8" dir="rtl">
         <Routes>
           <Route path="/" element={<Dashboard />} />

@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.1",
   "type": "module",
-  "homepage": "https://manhobat.com",
+  "homepage": "https://alnopeapp2025.github.io/Tagep/",
   "scripts": {
     "dev": "vite",
     "build": "vite build && cp dist/index.html dist/404.html && touch dist/.nojekyll",
