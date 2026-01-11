@@ -10,7 +10,7 @@ import {
   getCurrentUser, User,
   addClientToCloud, fetchClientsFromCloud
 } from '@/lib/store';
-import { supabase } from '@/lib/supabase'; // Import Supabase Client for Realtime
+import { supabase } from '@/lib/supabase';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
