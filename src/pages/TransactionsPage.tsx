@@ -154,11 +154,21 @@ export default function TransactionsPage() {
     // Load Clients (Local for now as per store)
     setClients(getStoredClients());
 
-    // Load Agents (Cloud if logged in, Local otherwise)
+    // Load Agents
+    // Strategy: Load Local first for speed, then Cloud for sync
+    const localAgents = getStoredAgents();
+    setAgents(localAgents);
+
     if (user) {
-        fetchAgentsFromCloud(user.id).then(data => setAgents(data));
-    } else {
-        setAgents(getStoredAgents());
+        fetchAgentsFromCloud(user.id).then(data => {
+            // Merge cloud data if needed, or just use it
+            // For now, we prefer cloud if available, but local is fallback
+            if (data && data.length > 0) {
+                setAgents(data);
+                // Sync local with cloud data for consistency
+                saveStoredAgents(data);
+            }
+        });
     }
 
     updateBalancesDisplay();
@@ -385,20 +395,20 @@ export default function TransactionsPage() {
       createdAt: Date.now()
     };
 
-    // 1. Instant UI Update (Optimistic)
-    // This ensures the dropdown updates immediately
-    setAgents(prev => [newAgent, ...prev]);
+    // 1. Instant UI Update (Optimistic) - Just like Clients
+    const updatedAgents = [newAgent, ...agents];
+    setAgents(updatedAgents);
     setFormData(prev => ({ ...prev, agent: newAgentName }));
 
-    // 2. Save Data (Cloud or Local)
+    // 2. ALWAYS Save to Local Storage (Persistence) - Just like Clients
+    saveStoredAgents(updatedAgents);
+
+    // 3. Background Cloud Sync (If logged in)
     if (currentUser) {
-        await addAgentToCloud(newAgent, currentUser.id);
-    } else {
-        const currentAgents = getStoredAgents();
-        saveStoredAgents([newAgent, ...currentAgents]);
+        addAgentToCloud(newAgent, currentUser.id);
     }
 
-    // 3. Reset Form
+    // 4. Reset Form
     setNewAgentName('');
     setNewAgentPhone('');
     setNewAgentWhatsapp('');

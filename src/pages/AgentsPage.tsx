@@ -43,12 +43,19 @@ export default function AgentsPage() {
     setCurrentUser(user);
     setBalances(getStoredBalances());
 
+    // Strategy: Load Local first for instant display, then Cloud for sync
+    const localAgents = getStoredAgents();
+    setAgents(localAgents);
+
     if (user) {
         // Fetch from Cloud
-        fetchAgentsFromCloud(user.id).then(data => setAgents(data));
-    } else {
-        // Fetch from Local
-        setAgents(getStoredAgents());
+        fetchAgentsFromCloud(user.id).then(data => {
+            if (data && data.length > 0) {
+                setAgents(data);
+                // Sync local
+                saveStoredAgents(data);
+            }
+        });
     }
   }, []);
 
@@ -67,8 +74,11 @@ export default function AgentsPage() {
           filter: `user_id=eq.${currentUser.id}`
         },
         (payload) => {
-          // Optional: You can refresh here, but we rely on Optimistic UI for adds
-          // fetchAgentsFromCloud(currentUser.id).then(data => setAgents(data));
+          // On realtime update, refresh list
+          fetchAgentsFromCloud(currentUser.id).then(data => {
+             setAgents(data);
+             saveStoredAgents(data);
+          });
           console.log('Realtime update:', payload);
         }
       )
@@ -157,21 +167,22 @@ export default function AgentsPage() {
     };
 
     // 1. Instant UI Update (Optimistic)
-    setAgents(prev => [newAgent, ...prev]);
+    const updatedAgents = [newAgent, ...agents];
+    setAgents(updatedAgents);
 
-    // 2. Close Dialog Immediately
+    // 2. ALWAYS Save to Local Storage (Persistence - Copying Client Logic)
+    saveStoredAgents(updatedAgents);
+
+    // 3. Close Dialog Immediately
     setNewAgentName('');
     setNewAgentPhone('');
     setNewAgentWhatsapp('');
     setErrors({ phone: '', whatsapp: '' });
     setOpen(false);
 
-    // 3. Background Sync
+    // 4. Background Sync
     if (currentUser) {
         addAgentToCloud(newAgent, currentUser.id);
-    } else {
-        const currentAgents = getStoredAgents();
-        saveStoredAgents([newAgent, ...currentAgents]);
     }
   };
 
@@ -217,7 +228,6 @@ export default function AgentsPage() {
     setBalances(newBalances);
 
     // 2. Deduct from Pending Treasury (Liability Settled)
-    // As per requirement: "خصم المبلغ فوراً من خزنة غير مستحقة"
     const pendingBalances = getStoredPendingBalances();
     const currentPending = pendingBalances[selectedBank] || 0;
     const newPending = { ...pendingBalances };
