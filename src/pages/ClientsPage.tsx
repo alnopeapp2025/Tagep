@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-export default function ClientsPage() {
+function ClientsPage() {
   const navigate = useNavigate();
   const [clients, setClients] = useState<Client[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -166,7 +166,7 @@ export default function ClientsPage() {
         // 2. Save to Cloud (Authenticated)
         const success = await addClientToCloud(newClient, currentUser.id);
         if (!success) {
-             alert("فشل حفظ العميل في السحابة. يرجى التحقق من الاتصال.");
+             console.log("فشل حفظ العميل في السحابة. يرجى التحقق من الاتصال.");
         }
     } else {
         // 2. Save to Local (Visitor)
@@ -533,3 +533,5 @@ export default function ClientsPage() {
     </div>
   );
 }
+
+export default ClientsPage;
