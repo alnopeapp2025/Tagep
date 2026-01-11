@@ -1,8 +1,4 @@
-import { Transaction } from '@/pages/TransactionsPage';
 import { supabase } from './supabase';
-
-// Re-export Transaction so other files can import it from store
-export type { Transaction };
 
 // --- Constants ---
 export const BANKS_LIST = [
@@ -13,6 +9,24 @@ export const BANKS_LIST = [
 export const INITIAL_BALANCES: Record<string, number> = BANKS_LIST.reduce((acc, bank) => ({ ...acc, [bank]: 0 }), {});
 
 // --- Types ---
+// Moved Transaction definition HERE to fix circular dependency
+export interface Transaction {
+  id: number;
+  serialNo: string;
+  type: string;
+  clientPrice: string;
+  agentPrice: string;
+  agent: string;
+  clientName?: string;
+  duration: string;
+  paymentMethod: string;
+  createdAt: number;
+  targetDate: number;
+  status: 'active' | 'completed' | 'cancelled';
+  agentPaid?: boolean;
+  clientRefunded?: boolean;
+}
+
 export interface User {
   id: number;
   officeName: string;

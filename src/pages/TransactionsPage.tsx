@@ -28,26 +28,10 @@ import {
   BANKS_LIST, getStoredClients, saveStoredClients, Client, getStoredAgents, saveStoredAgents, Agent,
   getCurrentUser, User,
   addClientToCloud, addAgentToCloud, fetchClientsFromCloud, fetchAgentsFromCloud,
-  addTransactionToCloud, fetchTransactionsFromCloud, updateTransactionStatusInCloud
+  addTransactionToCloud, fetchTransactionsFromCloud, updateTransactionStatusInCloud,
+  Transaction
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
-
-export interface Transaction {
-  id: number;
-  serialNo: string;
-  type: string;
-  clientPrice: string;
-  agentPrice: string;
-  agent: string;
-  clientName?: string;
-  duration: string;
-  paymentMethod: string;
-  createdAt: number;
-  targetDate: number;
-  status: 'active' | 'completed' | 'cancelled';
-  agentPaid?: boolean;
-  clientRefunded?: boolean;
-}
 
 const transactionTypesList = [
   "تجديد إقامة", "نقل كفالة", "خروج وعودة", "خروج نهائي", "تأشيرة زيارة", "تأمين طبي", "إصدار رخصة"
