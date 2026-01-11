@@ -45,18 +45,15 @@ function ClientsPage() {
     setPendingBalances(getStoredPendingBalances());
 
     if (user) {
-        // Fetch from Cloud if logged in (Privacy: Filter by user_id)
         fetchClientsFromCloud(user.id).then(data => {
             setClients(data);
         });
     } else {
-        // Load Clients from Local Storage (Visitor)
         const localClients = getStoredClients();
         setClients(localClients);
     }
   }, []);
 
-  // Realtime Subscription Effect for Clients
   useEffect(() => {
     if (!currentUser) return;
 
@@ -83,10 +80,8 @@ function ClientsPage() {
     };
   }, [currentUser]);
 
-  // Calculate Total Refund Due
   useEffect(() => {
     if (clientTxs.length > 0) {
-        // Count cancelled transactions that haven't been refunded
         const total = clientTxs
             .filter(t => t.status === 'cancelled' && !t.clientRefunded)
             .reduce((sum, t) => sum + (parseFloat(t.clientPrice) || 0), 0);
@@ -158,18 +153,12 @@ function ClientsPage() {
       createdAt: Date.now()
     };
 
-    // 1. Optimistic UI Update (Instant)
     const updatedClients = [newClient, ...clients];
     setClients(updatedClients);
 
     if (currentUser) {
-        // 2. Save to Cloud (Authenticated)
-        const success = await addClientToCloud(newClient, currentUser.id);
-        if (!success) {
-             console.log("فشل حفظ العميل في السحابة. يرجى التحقق من الاتصال.");
-        }
+        await addClientToCloud(newClient, currentUser.id);
     } else {
-        // 2. Save to Local (Visitor)
         saveStoredClients(updatedClients);
     }
 
@@ -209,19 +198,16 @@ function ClientsPage() {
     
     const currentPending = pendingBalances[selectedBank] || 0;
     
-    // Check if we have enough in pending balance to refund
     if (currentPending < totalRefundDue) {
         setRefundError('رصيد الخزنة غير المستحقة (المعلق) غير كافي في هذا البنك');
         return;
     }
 
-    // 1. Deduct from Pending Treasury
     const newPending = { ...pendingBalances };
     newPending[selectedBank] = currentPending - totalRefundDue;
     saveStoredPendingBalances(newPending);
     setPendingBalances(newPending);
 
-    // 2. Mark Transactions as Refunded
     const allTxs = getStoredTransactions();
     const refundedTxIds: number[] = [];
     
@@ -234,7 +220,6 @@ function ClientsPage() {
     });
     saveStoredTransactions(updatedTxs);
 
-    // 3. Create Refund Record
     const refundRecord: ClientRefundRecord = {
         id: Date.now(),
         clientName: selectedClient.name,
@@ -246,7 +231,6 @@ function ClientsPage() {
     const refunds = getStoredClientRefunds();
     saveStoredClientRefunds([refundRecord, ...refunds]);
 
-    // 4. Update Local View
     const refreshedTxs = updatedTxs.filter(t => t.clientName === selectedClient.name);
     setClientTxs(refreshedTxs);
 
@@ -438,11 +422,8 @@ function ClientsPage() {
                 )}
             </div>
 
-            {/* Footer Section: Refund */}
             {clientTxs.some(t => t.status === 'cancelled' && !t.clientRefunded) && totalRefundDue > 0 && (
                 <div className="mt-2 pt-4 border-t border-gray-200">
-                    
-                    {/* Step 1: Summary & Refund Button */}
                     {refundStep === 'summary' && (
                         <div className="flex items-center justify-between bg-white p-4 rounded-xl shadow-3d-inset">
                             <button 
@@ -459,7 +440,6 @@ function ClientsPage() {
                         </div>
                     )}
 
-                    {/* Step 2: Bank Selection */}
                     {refundStep === 'bank-select' && (
                         <div className="bg-white p-4 rounded-xl shadow-3d-inset space-y-3 animate-in fade-in slide-in-from-bottom-2">
                             <div className="flex justify-between items-center mb-2">
@@ -496,7 +476,6 @@ function ClientsPage() {
                         </div>
                     )}
 
-                    {/* Step 3: Success & WhatsApp */}
                     {refundStep === 'success' && (
                         <div className="bg-green-50 border border-green-200 p-4 rounded-xl text-center space-y-4 animate-in zoom-in">
                             <div className="flex flex-col items-center gap-2">

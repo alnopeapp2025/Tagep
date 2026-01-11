@@ -32,7 +32,6 @@ import {
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 
-// --- Types ---
 export interface Transaction {
   id: number;
   serialNo: string;
@@ -50,12 +49,10 @@ export interface Transaction {
   clientRefunded?: boolean;
 }
 
-// --- Constants ---
 const transactionTypesList = [
   "تجديد إقامة", "نقل كفالة", "خروج وعودة", "خروج نهائي", "تأشيرة زيارة", "تأمين طبي", "إصدار رخصة"
 ];
 
-// --- Helper Component: Detailed Countdown Timer ---
 const CountdownTimer = ({ targetDate, status }: { targetDate: number, status: string }) => {
   const [timeLeft, setTimeLeft] = useState("جاري الحساب...");
 
@@ -89,27 +86,17 @@ const CountdownTimer = ({ targetDate, status }: { targetDate: number, status: st
   return <span className="font-mono font-bold text-blue-600 text-xs sm:text-sm" dir="rtl">{timeLeft}</span>;
 };
 
-export default function TransactionsPage() {
+function TransactionsPage() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   
-  // Wallet State
   const [officeBalance, setOfficeBalance] = useState(0);
-
-  // Transactions State
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-
-  // Clients & Agents State
   const [clients, setClients] = useState<Client[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
-  
-  // Current User for Invoice
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-
-  // Feedback Messages
   const [feedbackMsg, setFeedbackMsg] = useState<{type: 'success' | 'error', text: string} | null>(null);
 
-  // Quick Add States
   const [addClientOpen, setAddClientOpen] = useState(false);
   const [newClientName, setNewClientName] = useState('');
   const [newClientPhone, setNewClientPhone] = useState('');
@@ -122,7 +109,6 @@ export default function TransactionsPage() {
   const [newAgentWhatsapp, setNewAgentWhatsapp] = useState('');
   const [agentErrors, setAgentErrors] = useState({ phone: '', whatsapp: '' });
 
-  // Form State
   const [inputTypeMode, setInputTypeMode] = useState<'manual' | 'select'>('manual');
   const [errors, setErrors] = useState<Record<string, string>>({});
   
@@ -137,7 +123,6 @@ export default function TransactionsPage() {
     paymentMethod: ''
   });
 
-  // Refs for Smart Navigation
   const manualTypeRef = useRef<HTMLInputElement>(null);
   const agentPriceRef = useRef<HTMLInputElement>(null);
   const clientPriceRef = useRef<HTMLInputElement>(null);
@@ -145,18 +130,15 @@ export default function TransactionsPage() {
   const clientSelectRef = useRef<HTMLButtonElement>(null);
   const agentSelectRef = useRef<HTMLButtonElement>(null);
 
-  // Load Initial Data
   useEffect(() => {
     const user = getCurrentUser();
     setCurrentUser(user);
 
     if (user) {
-        // Fetch from Cloud if logged in
         fetchTransactionsFromCloud(user.id).then(data => setTransactions(data));
         fetchClientsFromCloud(user.id).then(data => setClients(data));
         fetchAgentsFromCloud(user.id).then(data => setAgents(data));
     } else {
-        // Local fallback for visitors
         setTransactions(getStoredTransactions());
         setClients(getStoredClients());
         setAgents(getStoredAgents());
@@ -165,7 +147,6 @@ export default function TransactionsPage() {
     updateBalancesDisplay();
   }, []);
 
-  // Realtime Subscription for Transactions
   useEffect(() => {
     if (!currentUser) return;
 
@@ -217,7 +198,6 @@ export default function TransactionsPage() {
         newErrors.type = "يرجى اختيار نوع المعاملة";
     }
     
-    // Only validate agent price if not self-service
     if (formData.agent !== 'إنجاز بنفسي' && !formData.agentPrice) {
         newErrors.agentPrice = "مطلوب";
         if(!firstErrorField) firstErrorField = agentPriceRef;
@@ -272,7 +252,6 @@ export default function TransactionsPage() {
       clientRefunded: false
     };
 
-    // Add to Pending Balances (Local logic for immediate feedback)
     const pendingBalances = getStoredPendingBalances();
     if (pendingBalances[formData.paymentMethod] !== undefined) {
         pendingBalances[formData.paymentMethod] += clientP;
@@ -281,15 +260,12 @@ export default function TransactionsPage() {
     }
     saveStoredPendingBalances(pendingBalances);
 
-    // Optimistic Update
     const updatedTxs = [newTx, ...transactions];
     setTransactions(updatedTxs);
     
     if (currentUser) {
-        // Save to Cloud (Authenticated)
         await addTransactionToCloud(newTx, currentUser.id);
     } else {
-        // Save to Local (Visitor)
         saveStoredTransactions(updatedTxs);
     }
 
@@ -313,10 +289,9 @@ export default function TransactionsPage() {
     return regex.test(num);
   };
 
-  // --- Contact Import Logic ---
   const handleImportContact = async (type: 'client' | 'agent') => {
     try {
-      // @ts-ignore - Contact Picker API
+      // @ts-ignore
       if ('contacts' in navigator && 'ContactsManager' in window) {
         const props = ['name', 'tel'];
         const opts = { multiple: false };
@@ -328,7 +303,6 @@ export default function TransactionsPage() {
           const rawName = contact.name[0];
           let rawPhone = contact.tel[0];
 
-          // Format Phone: Remove non-digits, remove 966 or 05 prefix, ensure starts with 5
           rawPhone = rawPhone.replace(/\D/g, '');
           
           if (rawPhone.startsWith('966')) {
@@ -383,11 +357,9 @@ export default function TransactionsPage() {
       createdAt: Date.now()
     };
     
-    // 1. Optimistic UI Update
     const updated = [newClient, ...clients];
     setClients(updated);
     
-    // 2. Save to Cloud or Local
     if (currentUser) {
         await addClientToCloud(newClient, currentUser.id);
     } else {
@@ -430,19 +402,16 @@ export default function TransactionsPage() {
       createdAt: Date.now()
     };
 
-    // 1. Instant UI Update
     const updatedAgents = [newAgent, ...agents];
     setAgents(updatedAgents);
     setFormData(prev => ({ ...prev, agent: newAgentName }));
 
-    // 2. Save to Cloud or Local
     if (currentUser) {
         await addAgentToCloud(newAgent, currentUser.id);
     } else {
         saveStoredAgents(updatedAgents);
     }
 
-    // 3. Reset Form
     setNewAgentName('');
     setNewAgentPhone('');
     setNewAgentWhatsapp('');
@@ -460,21 +429,17 @@ export default function TransactionsPage() {
     const pendingBalances = getStoredPendingBalances();
     const currentBalances = getStoredBalances();
 
-    // Logic when completing a transaction
     if (newStatus === 'completed' && tx.status === 'active') {
-        // 1. Remove Client Price from Pending (It was fully there)
         if (pendingBalances[tx.paymentMethod] !== undefined) {
             pendingBalances[tx.paymentMethod] = Math.max(0, pendingBalances[tx.paymentMethod] - clientP);
         }
         
-        // 2. Add Agent Price back to Pending (Liability/Payable to Agent)
         if (pendingBalances[tx.paymentMethod] !== undefined) {
             pendingBalances[tx.paymentMethod] += agentP;
         } else {
             pendingBalances[tx.paymentMethod] = agentP;
         }
 
-        // 3. Add FULL Client Price to Actual Treasury (Cash received)
         if (currentBalances[tx.paymentMethod] !== undefined) {
             currentBalances[tx.paymentMethod] += clientP; 
         } else {
@@ -485,40 +450,31 @@ export default function TransactionsPage() {
         saveStoredBalances(currentBalances);
         updateBalancesDisplay();
 
-        // Show Success Message
         setFeedbackMsg({ type: 'success', text: 'تم إنجاز المعاملة بنجاح' });
         setTimeout(() => setFeedbackMsg(null), 2000);
     }
 
-    // Logic when cancelling a transaction
     if (newStatus === 'cancelled' && tx.status === 'active') {
-         // Stays in Pending Balances until refunded
-         // Show Cancel Message
          setFeedbackMsg({ type: 'error', text: 'تم الغاء المعامله بنجاح' });
          setTimeout(() => setFeedbackMsg(null), 2000);
     }
 
-    // Optimistic Update
     const updatedTxs = transactions.map(t => 
       t.id === id ? { ...t, status: newStatus } : t
     );
     setTransactions(updatedTxs);
 
     if (currentUser) {
-        // Update in Cloud
         await updateTransactionStatusInCloud(id, { status: newStatus });
     } else {
-        // Update Locally
         saveStoredTransactions(updatedTxs);
     }
   };
 
-  // --- Invoice Printing Logic ---
   const [printTx, setPrintTx] = useState<Transaction | null>(null);
 
   const handlePrint = (tx: Transaction) => {
     setPrintTx(tx);
-    // Wait for state to update then print
     setTimeout(() => {
         window.print();
         setPrintTx(null);
@@ -540,7 +496,6 @@ export default function TransactionsPage() {
 
   return (
     <>
-    {/* Feedback Overlay */}
     {feedbackMsg && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
             <div className={cn(
@@ -563,10 +518,8 @@ export default function TransactionsPage() {
         </div>
     )}
 
-    {/* Main Application UI (Hidden during print) */}
     <div className="max-w-5xl mx-auto pb-20 print:hidden">
       
-      {/* Header & Wallet Summary */}
       <header className="mb-6">
         <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-4">
@@ -592,7 +545,6 @@ export default function TransactionsPage() {
         </div>
       </header>
 
-      {/* Actions Area */}
       <div className="mb-6">
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
@@ -610,10 +562,8 @@ export default function TransactionsPage() {
               <DialogDescription className="hidden">Form</DialogDescription>
             </DialogHeader>
 
-            {/* Compact Form Grid */}
             <div className="grid gap-3 py-2">
               
-              {/* 1. Transaction Type (Moved to Top) */}
               <div className="relative border-2 border-red-400/30 rounded-xl p-3 bg-white/30">
                  <Label className="text-gray-700 font-bold text-xs mb-2 block">نوع المعاملة</Label>
                  
@@ -672,7 +622,6 @@ export default function TransactionsPage() {
                  {errors.type && <p className="text-red-500 text-[10px] mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3"/> {errors.type}</p>}
               </div>
 
-              {/* 2. Agent Selection */}
               <div className="space-y-1">
                 <Label className="text-gray-700 font-bold text-xs">اختر المعقب</Label>
                 <div className="flex gap-2">
@@ -707,7 +656,6 @@ export default function TransactionsPage() {
                         <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
                             <DialogHeader><DialogTitle>إضافة معقب سريع</DialogTitle></DialogHeader>
                             
-                            {/* Import from Phone Button */}
                             <button 
                                 onClick={() => handleImportContact('agent')}
                                 className="w-full py-2 bg-purple-100 text-purple-700 rounded-xl font-bold shadow-sm hover:bg-purple-200 flex items-center justify-center gap-2 mb-2"
@@ -764,9 +712,7 @@ export default function TransactionsPage() {
                 </div>
               </div>
 
-              {/* 3. Prices */}
               <div className="grid grid-cols-2 gap-3">
-                 {/* Conditionally Render Agent Price */}
                  {formData.agent !== 'إنجاز بنفسي' && (
                     <div className="space-y-1">
                       <Label className="text-gray-700 font-bold text-xs">سعر المعقب</Label>
@@ -814,7 +760,6 @@ export default function TransactionsPage() {
                 </div>
               </div>
 
-               {/* 4. Client Selection with Add Button */}
                <div className="space-y-1">
                 <Label className="text-gray-700 font-bold text-xs">العميل</Label>
                 <div className="flex gap-2">
@@ -842,7 +787,6 @@ export default function TransactionsPage() {
                         <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
                             <DialogHeader><DialogTitle>إضافة عميل سريع</DialogTitle></DialogHeader>
                             
-                            {/* Import from Phone Button */}
                             <button 
                                 onClick={() => handleImportContact('client')}
                                 className="w-full py-2 bg-purple-100 text-purple-700 rounded-xl font-bold shadow-sm hover:bg-purple-200 flex items-center justify-center gap-2 mb-2"
@@ -899,7 +843,6 @@ export default function TransactionsPage() {
                 </div>
               </div>
 
-              {/* 5. Duration & Payment */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label className="text-gray-700 font-bold text-xs">مدة الإنجاز (أيام)</Label>
@@ -958,7 +901,6 @@ export default function TransactionsPage() {
         </Dialog>
       </div>
 
-      {/* Transactions List */}
       <div className="space-y-4">
         {transactions.length === 0 ? (
           <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-8 min-h-[300px] flex flex-col items-center justify-center text-center border border-white/20">
@@ -983,12 +925,10 @@ export default function TransactionsPage() {
                         <CardContent className="p-0">
                         <div className="flex flex-col">
                             
-                            {/* Top Row: Info (One Line) - Yellow Background */}
                             <div className="flex items-center justify-between p-4 bg-yellow-200 border-b border-yellow-300">
                                 <div className="flex items-center gap-2 sm:gap-4 overflow-hidden">
                                     <span className="font-mono font-bold text-yellow-800 text-sm">#{tx.serialNo}</span>
                                     <span className="h-4 w-[1px] bg-yellow-400"></span>
-                                    {/* Type */}
                                     <span className="font-bold text-gray-800 text-sm truncate">
                                         {tx.type}
                                     </span>
@@ -1002,14 +942,12 @@ export default function TransactionsPage() {
                                 )} />
                             </div>
 
-                            {/* Middle: Timer & Status (Outside Yellow Block) */}
                             <div className="p-4 flex items-center justify-between gap-4">
                                 <div className="w-full bg-[#eef2f6] shadow-3d-inset rounded-xl p-3 text-center flex-1">
                                     <CountdownTimer targetDate={tx.targetDate} status={tx.status} />
                                 </div>
                             </div>
 
-                            {/* Eye Icon Overlay (Appears on Hover) - Updated to be more visible/colored */}
                             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
                                 <div className="w-14 h-14 bg-white/90 backdrop-blur-sm rounded-full shadow-lg flex items-center justify-center text-blue-600 border-2 border-blue-100 animate-in zoom-in">
                                     <Eye className="w-8 h-8" />
@@ -1021,7 +959,6 @@ export default function TransactionsPage() {
                     </Card>
                 </DialogTrigger>
                 
-                {/* Transaction Details & Actions Modal */}
                 <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
                     <DialogHeader>
                         <DialogTitle className="text-center font-bold text-gray-800">تفاصيل المعاملة #{tx.serialNo}</DialogTitle>
@@ -1034,7 +971,6 @@ export default function TransactionsPage() {
                             <div className="bg-white/50 p-3 rounded-xl"><span className="text-gray-500 block text-xs">المعقب</span><span className="font-bold">{tx.agent}</span></div>
                         </div>
 
-                        {/* Action Buttons */}
                         <div className="grid grid-cols-2 gap-3">
                             <button onClick={() => handlePrint(tx)} className="flex items-center justify-center gap-2 py-3 bg-gray-200 rounded-xl font-bold text-gray-700 hover:bg-gray-300">
                                 <Printer className="w-4 h-4" /> طباعة
@@ -1069,12 +1005,10 @@ export default function TransactionsPage() {
       </div>
     </div>
 
-    {/* PRINT INVOICE TEMPLATE (Visible only when printing) */}
     {printTx && (
         <div className="hidden print:block fixed inset-0 bg-white z-[9999] p-8" dir="rtl">
             <div className="border-2 border-gray-800 rounded-3xl p-8 h-full flex flex-col justify-between">
                 
-                {/* Header */}
                 <div className="text-center space-y-2">
                     <h1 className="text-4xl font-black text-gray-900 mb-2">
                         {currentUser?.officeName || 'مكتب الخدمات العامة'}
@@ -1085,7 +1019,6 @@ export default function TransactionsPage() {
                     <div className="w-full h-1 bg-gray-800 my-6 rounded-full"></div>
                 </div>
 
-                {/* Content */}
                 <div className="flex-1 flex flex-col justify-center space-y-8">
                     <div className="text-center mb-8">
                         <h2 className="text-3xl font-black text-blue-800 bg-blue-50 inline-block px-8 py-2 rounded-xl border border-blue-200">فاتورة معاملة</h2>
@@ -1115,7 +1048,6 @@ export default function TransactionsPage() {
                     </div>
                 </div>
 
-                {/* Footer */}
                 <div className="text-center mt-8 pt-8 border-t border-gray-200">
                     <p className="text-gray-500 font-medium">شكراً لثقتكم بنا</p>
                     <p className="text-xs text-gray-400 mt-2">تم إصدار هذه الفاتورة إلكترونياً</p>
@@ -1126,3 +1058,5 @@ export default function TransactionsPage() {
     </>
   );
 }
+
+export default TransactionsPage;

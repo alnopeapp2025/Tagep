@@ -16,12 +16,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-export default function AgentsPage() {
+function AgentsPage() {
   const navigate = useNavigate();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   
-  // Form States
   const [newAgentName, setNewAgentName] = useState('');
   const [newAgentPhone, setNewAgentPhone] = useState('');
   const [newAgentWhatsapp, setNewAgentWhatsapp] = useState('');
@@ -32,7 +31,6 @@ export default function AgentsPage() {
   const [agentTxs, setAgentTxs] = useState<Transaction[]>([]);
   const [open, setOpen] = useState(false);
 
-  // Transfer States
   const [transferStep, setTransferStep] = useState<'summary' | 'bank-select' | 'success'>('summary');
   const [selectedBank, setSelectedBank] = useState('');
   const [balances, setBalances] = useState<Record<string, number>>({});
@@ -45,18 +43,15 @@ export default function AgentsPage() {
     setBalances(getStoredBalances());
 
     if (user) {
-        // Fetch from Cloud if logged in (Privacy: Filter by user_id)
         fetchAgentsFromCloud(user.id).then(data => {
             setAgents(data);
         });
     } else {
-        // Load Agents from Local Storage (Visitor)
         const localAgents = getStoredAgents();
         setAgents(localAgents);
     }
   }, []);
 
-  // Realtime Subscription Effect for Agents
   useEffect(() => {
     if (!currentUser) return;
 
@@ -83,10 +78,8 @@ export default function AgentsPage() {
     };
   }, [currentUser]);
 
-  // Calculate Total Due whenever transactions change
   useEffect(() => {
     if (agentTxs.length > 0) {
-        // Only count completed transactions that haven't been paid yet
         const total = agentTxs
             .filter(t => t.status === 'completed' && !t.agentPaid)
             .reduce((sum, t) => sum + (parseFloat(t.agentPrice) || 0), 0);
@@ -101,10 +94,9 @@ export default function AgentsPage() {
     return regex.test(num);
   };
 
-  // --- Contact Import Logic ---
   const handleImportContact = async () => {
     try {
-      // @ts-ignore - Contact Picker API
+      // @ts-ignore
       if ('contacts' in navigator && 'ContactsManager' in window) {
         const props = ['name', 'tel'];
         const opts = { multiple: false };
@@ -116,7 +108,6 @@ export default function AgentsPage() {
           const rawName = contact.name[0];
           let rawPhone = contact.tel[0];
 
-          // Format Phone
           rawPhone = rawPhone.replace(/\D/g, '');
           if (rawPhone.startsWith('966')) rawPhone = rawPhone.substring(3);
           if (rawPhone.startsWith('0')) rawPhone = rawPhone.substring(1);
@@ -160,22 +151,15 @@ export default function AgentsPage() {
       createdAt: Date.now()
     };
 
-    // 1. Optimistic UI Update (Instant)
     const updatedAgents = [newAgent, ...agents];
     setAgents(updatedAgents);
 
     if (currentUser) {
-        // 2. Save to Cloud (Authenticated)
-        const success = await addAgentToCloud(newAgent, currentUser.id);
-        if (!success) {
-             console.error("فشل حفظ المعقب في السحابة.");
-        }
+        await addAgentToCloud(newAgent, currentUser.id);
     } else {
-        // 2. Save to Local (Visitor)
         saveStoredAgents(updatedAgents);
     }
 
-    // 3. Reset & Close
     setNewAgentName('');
     setNewAgentPhone('');
     setNewAgentWhatsapp('');
@@ -185,7 +169,6 @@ export default function AgentsPage() {
 
   const handleAgentClick = (agent: Agent) => {
     const allTxs = getStoredTransactions();
-    // Filter transactions for this agent
     const filtered = allTxs.filter(t => t.agent === agent.name);
     
     setAgentTxs(filtered); 
@@ -193,7 +176,7 @@ export default function AgentsPage() {
     setTransferStep('summary');
     setTransferError('');
     setSelectedBank('');
-    setBalances(getStoredBalances()); // Refresh balances
+    setBalances(getStoredBalances());
   };
 
   const handleWhatsAppClick = (e: React.MouseEvent, number?: string) => {
@@ -212,26 +195,22 @@ export default function AgentsPage() {
     if (!selectedBank || !selectedAgent) return;
     
     const currentBalance = balances[selectedBank] || 0;
-    // Check if we have enough cash in the selected bank
     if (currentBalance < totalDue) {
         setTransferError('رصيد البنك المختار غير كافي');
         return;
     }
 
-    // 1. Deduct from Actual Treasury (Cash Out)
     const newBalances = { ...balances };
     newBalances[selectedBank] = currentBalance - totalDue;
     saveStoredBalances(newBalances);
     setBalances(newBalances);
 
-    // 2. Deduct from Pending Treasury (Liability Settled)
     const pendingBalances = getStoredPendingBalances();
     const currentPending = pendingBalances[selectedBank] || 0;
     const newPending = { ...pendingBalances };
     newPending[selectedBank] = Math.max(0, currentPending - totalDue);
     saveStoredPendingBalances(newPending);
 
-    // 3. Mark Transactions as Paid
     const allTxs = getStoredTransactions();
     const paidTxIds: number[] = [];
     
@@ -244,7 +223,6 @@ export default function AgentsPage() {
     });
     saveStoredTransactions(updatedTxs);
 
-    // 4. Create Transfer Record
     const transferRecord: AgentTransferRecord = {
         id: Date.now(),
         agentName: selectedAgent.name,
@@ -256,11 +234,9 @@ export default function AgentsPage() {
     const transfers = getStoredAgentTransfers();
     saveStoredAgentTransfers([transferRecord, ...transfers]);
 
-    // 5. Update Local View Immediately (Optimistic Update)
     const refreshedTxs = updatedTxs.filter(t => t.agent === selectedAgent.name);
     setAgentTxs(refreshedTxs);
 
-    // Move to success step
     setTransferStep('success');
   };
 
@@ -448,11 +424,8 @@ export default function AgentsPage() {
                 )}
             </div>
 
-            {/* Footer Section: Total & Transfer */}
             {agentTxs.some(t => t.status === 'completed' && !t.agentPaid) && totalDue > 0 && (
                 <div className="mt-2 pt-4 border-t border-gray-200">
-                    
-                    {/* Step 1: Summary & Transfer Button */}
                     {transferStep === 'summary' && (
                         <div className="flex items-center justify-between bg-white p-4 rounded-xl shadow-3d-inset">
                             <button 
@@ -469,7 +442,6 @@ export default function AgentsPage() {
                         </div>
                     )}
 
-                    {/* Step 2: Bank Selection */}
                     {transferStep === 'bank-select' && (
                         <div className="bg-white p-4 rounded-xl shadow-3d-inset space-y-3 animate-in fade-in slide-in-from-bottom-2">
                             <div className="flex justify-between items-center mb-2">
@@ -506,7 +478,6 @@ export default function AgentsPage() {
                         </div>
                     )}
 
-                    {/* Step 3: Success & WhatsApp */}
                     {transferStep === 'success' && (
                         <div className="bg-green-50 border border-green-200 p-4 rounded-xl text-center space-y-4 animate-in zoom-in">
                             <div className="flex flex-col items-center gap-2">
@@ -543,3 +514,5 @@ export default function AgentsPage() {
     </div>
   );
 }
+
+export default AgentsPage;
