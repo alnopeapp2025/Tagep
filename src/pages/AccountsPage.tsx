@@ -1,7 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Wallet, Trash2, Landmark, ArrowLeftRight, Check, AlertCircle } from 'lucide-react';
-import { BANKS_LIST, getStoredBalances, saveStoredBalances, getStoredPendingBalances, saveStoredPendingBalances } from '@/lib/store';
+import { 
+  BANKS_LIST, 
+  getStoredBalances, 
+  saveStoredBalances, 
+  getStoredPendingBalances, 
+  saveStoredPendingBalances,
+  getCurrentUser,
+  fetchAccountsFromCloud,
+  updateAccountInCloud,
+  User
+} from '@/lib/store';
+import { supabase } from '@/lib/supabase';
 import {
   Dialog,
   DialogContent,
@@ -25,6 +36,7 @@ export default function AccountsPage() {
   const [pendingBalances, setPendingBalances] = useState<Record<string, number>>({});
   const [totalTreasury, setTotalTreasury] = useState(0);
   const [totalPending, setTotalPending] = useState(0);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   // Dialog States
   const [transferOpen, setTransferOpen] = useState(false);
@@ -38,22 +50,64 @@ export default function AccountsPage() {
   const [transferAmount, setTransferAmount] = useState('');
 
   useEffect(() => {
-    loadData();
+    const user = getCurrentUser();
+    setCurrentUser(user);
+
+    if (user) {
+        // Load from Cloud
+        fetchAccountsFromCloud(user.id).then(data => {
+            setBalances(data.balances);
+            setPendingBalances(data.pending);
+            calculateTotals(data.balances, data.pending);
+        });
+    } else {
+        // Load from Local
+        const localBal = getStoredBalances();
+        const localPending = getStoredPendingBalances();
+        setBalances(localBal);
+        setPendingBalances(localPending);
+        calculateTotals(localBal, localPending);
+    }
   }, []);
 
-  const loadData = () => {
-    const data = getStoredBalances();
-    setBalances(data);
-    const total = Object.values(data).reduce((sum, val) => sum + val, 0);
-    setTotalTreasury(total);
+  // Realtime Subscription
+  useEffect(() => {
+    if (!currentUser) return;
 
-    const pending = getStoredPendingBalances();
-    setPendingBalances(pending);
+    const channel = supabase
+      .channel('accounts-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'accounts',
+          filter: `user_id=eq.${currentUser.id}`
+        },
+        (payload) => {
+          // Re-fetch on change
+          fetchAccountsFromCloud(currentUser.id).then(data => {
+            setBalances(data.balances);
+            setPendingBalances(data.pending);
+            calculateTotals(data.balances, data.pending);
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUser]);
+
+  const calculateTotals = (bal: Record<string, number>, pending: Record<string, number>) => {
+    const total = Object.values(bal).reduce((sum, val) => sum + val, 0);
+    setTotalTreasury(total);
     const pTotal = Object.values(pending).reduce((sum, val) => sum + val, 0);
     setTotalPending(pTotal);
   };
 
-  const handleTransfer = () => {
+  const handleTransfer = async () => {
     setErrorMsg('');
     const amount = parseFloat(transferAmount);
 
@@ -79,8 +133,18 @@ export default function AccountsPage() {
     newBalances[transferFrom] = currentFromBalance - amount;
     newBalances[transferTo] = currentToBalance + amount;
 
-    saveStoredBalances(newBalances);
-    loadData();
+    // Update Local State (Optimistic)
+    setBalances(newBalances);
+    calculateTotals(newBalances, pendingBalances);
+
+    if (currentUser) {
+        // Update Cloud
+        await updateAccountInCloud(currentUser.id, transferFrom, newBalances[transferFrom], pendingBalances[transferFrom] || 0);
+        await updateAccountInCloud(currentUser.id, transferTo, newBalances[transferTo], pendingBalances[transferTo] || 0);
+    } else {
+        // Update Local Storage
+        saveStoredBalances(newBalances);
+    }
     
     setSuccessMsg(true);
     setTimeout(() => {
@@ -92,12 +156,24 @@ export default function AccountsPage() {
     }, 2000);
   };
 
-  const handleZeroTreasury = () => {
+  const handleZeroTreasury = async () => {
     if (confirm("تحذير هام: سيتم حذف جميع الأرصدة وتصفير الخزينة نهائياً. هل أنت متأكد؟")) {
         const zeroed = BANKS_LIST.reduce((acc, bank) => ({ ...acc, [bank]: 0 }), {});
-        saveStoredBalances(zeroed);
-        saveStoredPendingBalances(zeroed); // Also clear pending
-        loadData();
+        
+        setBalances(zeroed);
+        setPendingBalances(zeroed);
+        calculateTotals(zeroed, zeroed);
+
+        if (currentUser) {
+            // Update Cloud for ALL banks
+            for (const bank of BANKS_LIST) {
+                await updateAccountInCloud(currentUser.id, bank, 0, 0);
+            }
+        } else {
+            saveStoredBalances(zeroed);
+            saveStoredPendingBalances(zeroed);
+        }
+        
         setZeroOpen(false);
     }
   };

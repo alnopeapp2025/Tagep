@@ -9,7 +9,6 @@ export const BANKS_LIST = [
 export const INITIAL_BALANCES: Record<string, number> = BANKS_LIST.reduce((acc, bank) => ({ ...acc, [bank]: 0 }), {});
 
 // --- Types ---
-// Moved Transaction definition HERE to fix circular dependency
 export interface Transaction {
   id: number;
   serialNo: string;
@@ -564,6 +563,75 @@ export const fetchClientsFromCloud = async (userId: number): Promise<Client[]> =
     console.error('Fetch clients exception:', err);
     return [];
   }
+};
+
+// --- Accounts Management (Cloud) ---
+
+export const fetchAccountsFromCloud = async (userId: number) => {
+  try {
+    const { data, error } = await supabase
+      .from('accounts')
+      .select('*')
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Error fetching accounts:', error);
+      return { balances: INITIAL_BALANCES, pending: INITIAL_BALANCES };
+    }
+
+    const balances: Record<string, number> = { ...INITIAL_BALANCES };
+    const pending: Record<string, number> = { ...INITIAL_BALANCES };
+
+    data.forEach((row: any) => {
+        if (row.bank_name) {
+            balances[row.bank_name] = Number(row.balance);
+            pending[row.bank_name] = Number(row.pending_balance);
+        }
+    });
+
+    return { balances, pending };
+  } catch (err) {
+    console.error('Fetch accounts exception:', err);
+    return { balances: INITIAL_BALANCES, pending: INITIAL_BALANCES };
+  }
+};
+
+export const updateAccountInCloud = async (userId: number, bankName: string, balance: number, pendingBalance: number) => {
+    try {
+        // Check if account exists for this user and bank
+        const { data } = await supabase
+            .from('accounts')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('bank_name', bankName)
+            .maybeSingle();
+
+        if (data) {
+            // Update
+            await supabase
+                .from('accounts')
+                .update({ 
+                    balance: balance, 
+                    pending_balance: pendingBalance,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', data.id);
+        } else {
+            // Insert
+            await supabase
+                .from('accounts')
+                .insert([{ 
+                    user_id: userId, 
+                    bank_name: bankName, 
+                    balance: balance, 
+                    pending_balance: pendingBalance 
+                }]);
+        }
+        return true;
+    } catch (err) {
+        console.error('Update account exception:', err);
+        return false;
+    }
 };
 
 
