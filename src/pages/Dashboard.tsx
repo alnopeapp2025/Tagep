@@ -23,7 +23,8 @@ import {
   logoutUser,
   User,
   changePassword,
-  getLastBackupTime
+  getLastBackupTime,
+  fetchTransactionsFromCloud // Added import
 } from '@/lib/store';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
@@ -94,23 +95,34 @@ export default function Dashboard() {
     const user = getCurrentUser();
     setCurrentUser(user);
 
-    const txs = getStoredTransactions();
-    setTransactions(txs);
-    setAchievers(calculateAchievers(txs));
+    const loadData = async () => {
+        let txs: Transaction[] = [];
+        if (user) {
+            // Fetch latest transactions from cloud to ensure stats are correct
+            txs = await fetchTransactionsFromCloud(user.id);
+        } else {
+            txs = getStoredTransactions();
+        }
+        
+        setTransactions(txs);
+        setAchievers(calculateAchievers(txs));
+
+        // Calculate Ticker Stats
+        const now = Date.now();
+        const startOfWeek = new Date();
+        startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+        
+        const active = txs.filter(t => t.status === 'active').length;
+        const inProgress = txs.filter(t => t.status === 'active' && t.targetDate > now).length;
+        const completedWeek = txs.filter(t => t.status === 'completed' && t.createdAt >= startOfWeek.getTime()).length;
+
+        setTickerStats({ active, inProgress, completedWeek });
+    };
+
+    loadData();
 
     // Load Backup Time
     setLastBackup(getLastBackupTime());
-
-    // Calculate Ticker Stats
-    const now = Date.now();
-    const startOfWeek = new Date();
-    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
-    
-    const active = txs.filter(t => t.status === 'active').length;
-    const inProgress = txs.filter(t => t.status === 'active' && t.targetDate > now).length;
-    const completedWeek = txs.filter(t => t.status === 'completed' && t.createdAt >= startOfWeek.getTime()).length;
-
-    setTickerStats({ active, inProgress, completedWeek });
 
     const interval = setInterval(() => {
       setTickerIndex(prev => (prev + 1) % 3);
@@ -248,7 +260,7 @@ export default function Dashboard() {
               برنامج حسابات المعقبين
             </h1>
             <p className="text-gray-500 font-medium text-sm sm:text-base">
-              لوحة التحكم الرئيسية <span className="text-red-600 text-xs font-bold mr-1">v. 2</span>
+              لوحة التحكم الرئيسية <span className="text-red-600 text-xs font-bold mr-1">v. 1</span>
             </p>
           </div>
           
@@ -625,7 +637,7 @@ export default function Dashboard() {
 
                 <div className="absolute bottom-8 left-0 w-full px-6">
                    <div className="text-center text-xs text-gray-400">
-                      الإصدار 2.0.0
+                      الإصدار 1.0.0
                    </div>
                 </div>
               </SheetContent>

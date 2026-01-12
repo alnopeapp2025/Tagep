@@ -8,7 +8,7 @@ import {
   getStoredClientRefunds, saveStoredClientRefunds, ClientRefundRecord,
   getStoredPendingBalances, saveStoredPendingBalances,
   getCurrentUser, User,
-  addClientToCloud, fetchClientsFromCloud
+  addClientToCloud, fetchClientsFromCloud, fetchTransactionsFromCloud
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { Input } from '@/components/ui/input';
@@ -39,19 +39,27 @@ function ClientsPage() {
   const [refundError, setRefundError] = useState('');
   const [totalRefundDue, setTotalRefundDue] = useState(0);
 
+  // All Transactions (Local or Cloud)
+  const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
+
   useEffect(() => {
     const user = getCurrentUser();
     setCurrentUser(user);
     setPendingBalances(getStoredPendingBalances());
 
-    if (user) {
-        fetchClientsFromCloud(user.id).then(data => {
-            setClients(data);
-        });
-    } else {
-        const localClients = getStoredClients();
-        setClients(localClients);
-    }
+    const loadData = async () => {
+        if (user) {
+            const cloudClients = await fetchClientsFromCloud(user.id);
+            setClients(cloudClients);
+            const cloudTxs = await fetchTransactionsFromCloud(user.id);
+            setAllTransactions(cloudTxs);
+            saveStoredTransactions(cloudTxs); // Sync
+        } else {
+            setClients(getStoredClients());
+            setAllTransactions(getStoredTransactions());
+        }
+    };
+    loadData();
   }, []);
 
   useEffect(() => {
@@ -170,8 +178,8 @@ function ClientsPage() {
   };
 
   const handleClientClick = (client: Client) => {
-    const allTxs = getStoredTransactions();
-    const filtered = allTxs.filter(t => t.clientName === client.name);
+    // Use state variable instead of direct local storage
+    const filtered = allTransactions.filter(t => t.clientName === client.name);
     
     setClientTxs(filtered); 
     setSelectedClient(client);
@@ -208,16 +216,16 @@ function ClientsPage() {
     saveStoredPendingBalances(newPending);
     setPendingBalances(newPending);
 
-    const allTxs = getStoredTransactions();
     const refundedTxIds: number[] = [];
     
-    const updatedTxs = allTxs.map(t => {
+    const updatedTxs = allTransactions.map(t => {
         if (t.clientName === selectedClient.name && t.status === 'cancelled' && !t.clientRefunded) {
             refundedTxIds.push(t.id);
             return { ...t, clientRefunded: true };
         }
         return t;
     });
+    setAllTransactions(updatedTxs);
     saveStoredTransactions(updatedTxs);
 
     const refundRecord: ClientRefundRecord = {

@@ -8,7 +8,7 @@ import {
   getStoredAgentTransfers, saveStoredAgentTransfers, AgentTransferRecord,
   getStoredPendingBalances, saveStoredPendingBalances,
   getCurrentUser, User,
-  addAgentToCloud, fetchAgentsFromCloud
+  addAgentToCloud, fetchAgentsFromCloud, fetchTransactionsFromCloud
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { Input } from '@/components/ui/input';
@@ -37,19 +37,27 @@ function AgentsPage() {
   const [transferError, setTransferError] = useState('');
   const [totalDue, setTotalDue] = useState(0);
 
+  // All Transactions (Local or Cloud)
+  const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
+
   useEffect(() => {
     const user = getCurrentUser();
     setCurrentUser(user);
     setBalances(getStoredBalances());
 
-    if (user) {
-        fetchAgentsFromCloud(user.id).then(data => {
-            setAgents(data);
-        });
-    } else {
-        const localAgents = getStoredAgents();
-        setAgents(localAgents);
-    }
+    const loadData = async () => {
+        if (user) {
+            const cloudAgents = await fetchAgentsFromCloud(user.id);
+            setAgents(cloudAgents);
+            const cloudTxs = await fetchTransactionsFromCloud(user.id);
+            setAllTransactions(cloudTxs);
+            saveStoredTransactions(cloudTxs); // Sync for consistency
+        } else {
+            setAgents(getStoredAgents());
+            setAllTransactions(getStoredTransactions());
+        }
+    };
+    loadData();
   }, []);
 
   useEffect(() => {
@@ -168,8 +176,8 @@ function AgentsPage() {
   };
 
   const handleAgentClick = (agent: Agent) => {
-    const allTxs = getStoredTransactions();
-    const filtered = allTxs.filter(t => t.agent === agent.name);
+    // Use state variable instead of direct local storage to ensure cloud data is used if available
+    const filtered = allTransactions.filter(t => t.agent === agent.name);
     
     setAgentTxs(filtered); 
     setSelectedAgent(agent);
@@ -211,16 +219,16 @@ function AgentsPage() {
     newPending[selectedBank] = Math.max(0, currentPending - totalDue);
     saveStoredPendingBalances(newPending);
 
-    const allTxs = getStoredTransactions();
     const paidTxIds: number[] = [];
     
-    const updatedTxs = allTxs.map(t => {
+    const updatedTxs = allTransactions.map(t => {
         if (t.agent === selectedAgent.name && t.status === 'completed' && !t.agentPaid) {
             paidTxIds.push(t.id);
             return { ...t, agentPaid: true };
         }
         return t;
     });
+    setAllTransactions(updatedTxs);
     saveStoredTransactions(updatedTxs);
 
     const transferRecord: AgentTransferRecord = {

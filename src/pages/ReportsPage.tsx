@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Calendar, CheckCircle, XCircle, DollarSign, Users, ArrowUpRight, ArrowDownLeft, Eye, FileText } from 'lucide-react';
-import { getStoredTransactions, Transaction, getStoredAgentTransfers, AgentTransferRecord } from '@/lib/store';
+import { getStoredTransactions, Transaction, getStoredAgentTransfers, AgentTransferRecord, getCurrentUser, fetchTransactionsFromCloud } from '@/lib/store';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -32,11 +32,22 @@ export default function ReportsPage() {
   const [detailList, setDetailList] = useState<Transaction[]>([]);
 
   useEffect(() => {
-    const txs = getStoredTransactions();
-    setTransactions(txs);
-    calculateStats(txs);
-    setAgentTransfers(getStoredAgentTransfers());
-    setRefunds(txs.filter(t => t.status === 'cancelled'));
+    const user = getCurrentUser();
+    
+    const loadData = async () => {
+        let txs: Transaction[] = [];
+        if (user) {
+            txs = await fetchTransactionsFromCloud(user.id);
+        } else {
+            txs = getStoredTransactions();
+        }
+        
+        setTransactions(txs);
+        calculateStats(txs);
+        setAgentTransfers(getStoredAgentTransfers());
+        setRefunds(txs.filter(t => t.status === 'cancelled'));
+    };
+    loadData();
   }, []);
 
   const calculateStats = (txs: Transaction[]) => {
