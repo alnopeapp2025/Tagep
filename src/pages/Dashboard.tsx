@@ -302,7 +302,7 @@ export default function Dashboard() {
         <header className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-2xl sm:text-4xl font-black text-gray-800 mb-1 text-shadow">
-              برنامج حسابات المعقبين
+              برنامج المعقبين
             </h1>
             <p className="text-gray-500 font-medium text-sm sm:text-base">
               لوحة التحكم الرئيسية <span className="text-red-600 text-xs font-bold mr-1">v. 4</span>
