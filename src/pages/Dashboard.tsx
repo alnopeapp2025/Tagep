@@ -305,7 +305,7 @@ export default function Dashboard() {
               برنامج حسابات المعقبين
             </h1>
             <p className="text-gray-500 font-medium text-sm sm:text-base">
-              لوحة التحكم الرئيسية <span className="text-red-600 text-xs font-bold mr-1">v. 3</span>
+              لوحة التحكم الرئيسية <span className="text-red-600 text-xs font-bold mr-1">v. 4</span>
             </p>
           </div>
           
@@ -715,7 +715,7 @@ export default function Dashboard() {
 
                 <div className="absolute bottom-8 left-0 w-full px-6">
                    <div className="text-center text-xs text-gray-400">
-                      الإصدار 3.0.0
+                      الإصدار 4.0.0
                    </div>
                 </div>
               </SheetContent>
