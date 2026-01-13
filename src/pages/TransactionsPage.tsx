@@ -1037,83 +1037,111 @@ export default function TransactionsPage() {
     </div>
 
     {printTx && (
-        <div className="hidden print:flex fixed inset-0 bg-white z-[9999] flex-col" dir="rtl">
-            {/* Header */}
-            <div className="bg-slate-800 text-white p-10 print:p-10">
-                <div className="flex justify-between items-start">
+        <div className="hidden print:flex fixed inset-0 bg-white z-[9999] flex-col font-sans" dir="rtl">
+            {/* Header with Color Strip */}
+            <div className="h-4 bg-blue-600 w-full print:h-4"></div>
+            
+            <div className="px-12 py-8 flex justify-between items-start">
+                <div>
+                    <h1 className="text-3xl font-black text-slate-800 mb-2">{currentUser?.officeName || 'مكتب الخدمات العامة'}</h1>
+                    <p className="text-slate-500 text-sm font-medium">خدمات عامة - تعقيب - استشارات</p>
+                </div>
+                <div className="text-left">
+                    <h2 className="text-5xl font-black text-slate-100 tracking-tighter uppercase">INVOICE</h2>
+                    <p className="text-blue-600 font-bold text-lg -mt-2">فاتورة ضريبية</p>
+                </div>
+            </div>
+
+            <div className="px-12 my-4">
+                <div className="h-px bg-slate-200 w-full"></div>
+            </div>
+
+            {/* Info Grid */}
+            <div className="px-12 py-4 grid grid-cols-2 gap-12">
+                <div>
+                    <p className="text-xs font-bold text-slate-400 uppercase mb-1">بيانات العميل (Bill To)</p>
+                    <h3 className="text-xl font-bold text-slate-800 mb-1">{printTx.clientName}</h3>
+                    {/* Optional: Add client phone if available in a real app, looking up from clients list */}
+                </div>
+                <div className="grid grid-cols-2 gap-6">
                     <div>
-                        <h1 className="text-4xl font-black mb-2">{currentUser?.officeName || 'مكتب الخدمات العامة'}</h1>
-                        <p className="text-slate-300">فاتورة ضريبية مبسطة</p>
+                        <p className="text-xs font-bold text-slate-400 uppercase mb-1">رقم الفاتورة</p>
+                        <p className="text-lg font-bold text-slate-700">#{printTx.serialNo}</p>
                     </div>
-                    <div className="text-left">
-                        <h2 className="text-6xl font-black text-slate-700 opacity-20 absolute top-4 left-4">INVOICE</h2>
-                        <p className="font-mono text-xl font-bold">#{printTx.serialNo}</p>
-                        <p className="text-sm opacity-80">{new Date().toLocaleDateString('ar-SA')}</p>
+                    <div>
+                        <p className="text-xs font-bold text-slate-400 uppercase mb-1">التاريخ</p>
+                        <p className="text-lg font-bold text-slate-700">{new Date(printTx.createdAt).toLocaleDateString('ar-SA')}</p>
                     </div>
                 </div>
             </div>
 
-            {/* Body */}
-            <div className="flex-1 p-10">
-                <div className="grid grid-cols-2 gap-10 mb-10">
-                    <div>
-                        <p className="text-sm text-slate-500 font-bold mb-1">بيانات العميل</p>
-                        <h3 className="text-2xl font-bold text-slate-800">{printTx.clientName}</h3>
-                    </div>
-                    <div className="text-left">
-                        <p className="text-sm text-slate-500 font-bold mb-1">تاريخ المعاملة</p>
-                        <h3 className="text-xl font-bold text-slate-800">{new Date(printTx.createdAt).toLocaleDateString('ar-SA')}</h3>
-                    </div>
-                </div>
-
-                <div className="border rounded-2xl overflow-hidden mb-8">
+            {/* Table */}
+            <div className="px-12 py-8">
+                <div className="border border-slate-200 rounded-lg overflow-hidden">
                     <table className="w-full text-right">
-                        <thead className="bg-slate-100 text-slate-600">
+                        <thead className="bg-slate-50 text-slate-600">
                             <tr>
-                                <th className="p-4 font-bold">الوصف / نوع المعاملة</th>
-                                <th className="p-4 font-bold">الحالة</th>
-                                <th className="p-4 font-bold text-left">المبلغ</th>
+                                <th className="py-4 px-6 font-bold text-sm">الوصف / نوع المعاملة</th>
+                                <th className="py-4 px-6 font-bold text-sm text-center">الحالة</th>
+                                <th className="py-4 px-6 font-bold text-sm text-left">المبلغ</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y">
+                        <tbody className="divide-y divide-slate-100">
                             <tr>
-                                <td className="p-4 font-bold text-slate-800">{printTx.type}</td>
-                                <td className="p-4">
-                                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                                        printTx.status === 'completed' ? 'bg-green-100 text-green-700' :
-                                        printTx.status === 'cancelled' ? 'bg-red-100 text-red-700' :
-                                        'bg-orange-100 text-orange-700'
+                                <td className="py-6 px-6 font-bold text-slate-800">{printTx.type}</td>
+                                <td className="py-6 px-6 text-center">
+                                    <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
+                                        printTx.status === 'completed' ? 'bg-green-50 text-green-700 border-green-200' :
+                                        printTx.status === 'cancelled' ? 'bg-red-50 text-red-700 border-red-200' :
+                                        'bg-orange-50 text-orange-700 border-orange-200'
                                     }`}>
                                         {printTx.status === 'completed' ? 'تم الإنجاز' :
                                          printTx.status === 'cancelled' ? 'ملغاة' : 'قيد التنفيذ'}
                                     </span>
                                 </td>
-                                <td className="p-4 text-left font-black text-xl text-blue-600">
-                                    {printTx.clientPrice} <span className="text-xs text-gray-400">ر.س</span>
+                                <td className="py-6 px-6 text-left font-black text-xl text-slate-800">
+                                    {printTx.clientPrice} <span className="text-xs text-slate-400 font-medium">ر.س</span>
                                 </td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
+            </div>
 
-                <div className="flex justify-end">
-                    <div className="w-1/2 bg-blue-50 p-6 rounded-2xl">
-                        <div className="flex justify-between items-center">
-                            <span className="font-bold text-blue-900">الإجمالي المستحق</span>
-                            <span className="font-black text-3xl text-blue-600">{printTx.clientPrice} ر.س</span>
-                        </div>
+            {/* Totals */}
+            <div className="px-12 flex justify-end">
+                <div className="w-64">
+                    <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                        <span className="text-slate-500 font-medium">المجموع الفرعي</span>
+                        <span className="font-bold text-slate-700">{printTx.clientPrice} ر.س</span>
+                    </div>
+                    <div className="flex justify-between items-center py-4">
+                        <span className="text-blue-600 font-bold text-lg">الإجمالي المستحق</span>
+                        <span className="font-black text-2xl text-blue-600">{printTx.clientPrice} <span className="text-sm">ر.س</span></span>
                     </div>
                 </div>
             </div>
 
             {/* Footer */}
-            <div className="bg-slate-50 p-8 text-center border-t border-slate-200">
-                <p className="text-slate-600 font-bold mb-2">شكراً لتعاملكم معنا</p>
-                <div className="flex justify-center items-center gap-2 text-slate-500 font-mono text-sm" dir="ltr">
-                    <Phone className="w-4 h-4" />
-                    <span>{currentUser?.phone}</span>
+            <div className="mt-auto bg-slate-50 p-10 border-t border-slate-200 print:bg-slate-50">
+                <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                    <div className="text-center md:text-right">
+                        <p className="font-bold text-slate-700 mb-1">شكراً لتعاملكم معنا</p>
+                        <p className="text-xs text-slate-500">نسعد بخدمتكم دائماً</p>
+                    </div>
+                    <div className="flex items-center gap-6">
+                        <div className="flex items-center gap-2 text-slate-600">
+                            <div className="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center text-blue-600">
+                                <Phone className="w-4 h-4" />
+                            </div>
+                            <span className="font-mono font-bold" dir="ltr">{currentUser?.phone}</span>
+                        </div>
+                    </div>
                 </div>
             </div>
+            
+            {/* Bottom Strip */}
+            <div className="h-2 bg-slate-800 w-full"></div>
         </div>
     )}
     </>

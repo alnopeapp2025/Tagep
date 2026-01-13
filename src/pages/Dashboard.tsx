@@ -317,9 +317,10 @@ export default function Dashboard() {
                         <div className="w-10 h-10 rounded-full bg-blue-100 shadow-3d flex items-center justify-center text-blue-600 mb-1 group-hover:scale-105 transition-transform border border-blue-200">
                             <UserCircle className="w-6 h-6" />
                         </div>
-                        <p className="text-[10px] font-bold text-gray-600 truncate max-w-[80px]">
-                            مرحباً {currentUser.officeName}
-                        </p>
+                        <div className="text-center leading-3 mt-1">
+                            <span className="block text-[10px] font-bold text-gray-600">مرحبا</span>
+                            <span className="block text-[10px] font-bold text-red-600 truncate max-w-[80px]">{currentUser.officeName}</span>
+                        </div>
                     </div>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-56 bg-[#eef2f6] shadow-3d border-none rounded-xl" align="end" dir="rtl">
@@ -783,7 +784,7 @@ export default function Dashboard() {
             <DashboardButton 
                 icon={Receipt} 
                 label="المنصرفات" 
-                variant="danger"
+                variant="danger" 
                 onClick={() => navigate('/expenses')}
             />
           )}
