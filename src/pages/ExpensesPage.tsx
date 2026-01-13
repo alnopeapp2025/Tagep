@@ -12,9 +12,11 @@ import {
   addExpenseToCloud,
   fetchExpensesFromCloud,
   deleteExpenseFromCloud,
-  User
+  User,
+  getGlobalSettings,
+  GlobalSettings
 } from '@/lib/store';
-import { supabase } from '@/lib/supabase'; // Import Supabase Client
+import { supabase } from '@/lib/supabase';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
@@ -31,11 +33,13 @@ export default function ExpensesPage() {
   const [errorMsg, setErrorMsg] = useState('');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
+  const [settings, setSettings] = useState<GlobalSettings | null>(null);
 
   // Initial Load
   useEffect(() => {
     const user = getCurrentUser();
     setCurrentUser(user);
+    setSettings(getGlobalSettings());
     setBalances(getStoredBalances());
 
     if (user) {
@@ -79,6 +83,13 @@ export default function ExpensesPage() {
       supabase.removeChannel(channel);
     };
   }, [currentUser]);
+
+  const canAccessFeature = (feature: keyof GlobalSettings['featurePermissions']) => {
+    if (!settings) return true;
+    const userRole = currentUser?.role || 'visitor';
+    // @ts-ignore
+    return settings.featurePermissions[feature].includes(userRole);
+  };
 
   const handleAddExpense = async () => {
     setErrorMsg('');
@@ -264,13 +275,21 @@ export default function ExpensesPage() {
                 </div>
                 <div className="flex items-center gap-4">
                     <span className="font-bold text-red-600 text-lg">-{exp.amount.toLocaleString()} ر.س</span>
-                    <button 
-                        onClick={() => handleDeleteExpense(exp.id)}
-                        className="p-2 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all shadow-sm active:scale-95"
-                        title="حذف المصروف"
-                    >
-                        <Trash2 className="w-5 h-5" />
-                    </button>
+                    
+                    {canAccessFeature('deleteExpense') ? (
+                        <button 
+                            onClick={() => handleDeleteExpense(exp.id)}
+                            className="p-2 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all shadow-sm active:scale-95"
+                            title="حذف المصروف"
+                        >
+                            <Trash2 className="w-5 h-5" />
+                        </button>
+                    ) : (
+                        <div className="relative group/pro">
+                            <Trash2 className="w-5 h-5 text-gray-300 cursor-not-allowed" />
+                            <span className="absolute -top-2 -right-2 bg-yellow-400 text-yellow-900 text-[8px] px-1 font-black rounded">PRO</span>
+                        </div>
+                    )}
                 </div>
             </div>
         ))}

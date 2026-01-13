@@ -10,7 +10,9 @@ import {
   getCurrentUser,
   fetchAccountsFromCloud,
   updateAccountInCloud,
-  User
+  User,
+  getGlobalSettings,
+  GlobalSettings
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import {
@@ -37,6 +39,7 @@ export default function AccountsPage() {
   const [totalTreasury, setTotalTreasury] = useState(0);
   const [totalPending, setTotalPending] = useState(0);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [settings, setSettings] = useState<GlobalSettings | null>(null);
 
   // Dialog States
   const [transferOpen, setTransferOpen] = useState(false);
@@ -52,6 +55,7 @@ export default function AccountsPage() {
   useEffect(() => {
     const user = getCurrentUser();
     setCurrentUser(user);
+    setSettings(getGlobalSettings());
 
     if (user) {
         // Load from Cloud
@@ -105,6 +109,13 @@ export default function AccountsPage() {
     setTotalTreasury(total);
     const pTotal = Object.values(pending).reduce((sum, val) => sum + val, 0);
     setTotalPending(pTotal);
+  };
+
+  const canAccessFeature = (feature: keyof GlobalSettings['featurePermissions']) => {
+    if (!settings) return true;
+    const userRole = currentUser?.role || 'visitor';
+    // @ts-ignore
+    return settings.featurePermissions[feature].includes(userRole);
   };
 
   const handleTransfer = async () => {
@@ -229,11 +240,20 @@ export default function AccountsPage() {
 
       <div className="flex gap-4 mb-10 justify-center">
         <button 
-          onClick={() => setTransferOpen(true)}
-          className="flex items-center gap-2 px-6 py-3 rounded-xl bg-[#eef2f6] text-blue-600 font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all"
+          onClick={() => {
+              if(canAccessFeature('transfer')) {
+                  setTransferOpen(true);
+              } else {
+                  alert('هذه الميزة متاحة للأعضاء الذهبيين فقط');
+              }
+          }}
+          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all relative overflow-hidden ${
+              canAccessFeature('transfer') ? 'bg-[#eef2f6] text-blue-600' : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+          }`}
         >
           <ArrowLeftRight className="w-5 h-5" />
           تحويل بين البنوك
+          {!canAccessFeature('transfer') && <span className="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-[8px] px-1 font-black">PRO</span>}
         </button>
         <button 
           onClick={() => setZeroOpen(true)}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ArrowRight, Plus, Clock, Banknote, AlertCircle, Wallet, Printer, Send, Phone, MessageCircle, CheckCircle2, XCircle, Eye, Contact } from 'lucide-react';
+import { ArrowRight, Plus, Clock, Banknote, AlertCircle, Wallet, Printer, Send, Phone, MessageCircle, CheckCircle2, XCircle, Eye, Contact, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -30,7 +30,7 @@ import {
   addClientToCloud, addAgentToCloud, fetchClientsFromCloud, fetchAgentsFromCloud,
   addTransactionToCloud, fetchTransactionsFromCloud, updateTransactionStatusInCloud,
   fetchAccountsFromCloud, updateAccountInCloud,
-  Transaction
+  Transaction, getGlobalSettings, GlobalSettings
 } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 
@@ -81,6 +81,7 @@ export default function TransactionsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [feedbackMsg, setFeedbackMsg] = useState<{type: 'success' | 'error', text: string} | null>(null);
+  const [settings, setSettings] = useState<GlobalSettings | null>(null);
 
   // Financial State
   const [balances, setBalances] = useState<Record<string, number>>({});
@@ -122,6 +123,7 @@ export default function TransactionsPage() {
   useEffect(() => {
     const user = getCurrentUser();
     setCurrentUser(user);
+    setSettings(getGlobalSettings());
 
     if (user) {
         fetchTransactionsFromCloud(user.id).then(data => setTransactions(data));
@@ -471,7 +473,18 @@ export default function TransactionsPage() {
 
   const [printTx, setPrintTx] = useState<Transaction | null>(null);
 
+  const canAccessFeature = (feature: keyof GlobalSettings['featurePermissions']) => {
+    if (!settings) return true;
+    const userRole = currentUser?.role || 'visitor';
+    // @ts-ignore
+    return settings.featurePermissions[feature].includes(userRole);
+  };
+
   const handlePrint = (tx: Transaction) => {
+    if (!canAccessFeature('print')) {
+        alert('هذه الميزة متاحة للأعضاء الذهبيين فقط');
+        return;
+    }
     setPrintTx(tx);
     setTimeout(() => {
         window.print();
@@ -480,6 +493,10 @@ export default function TransactionsPage() {
   };
 
   const handleWhatsApp = (tx: Transaction) => {
+    if (!canAccessFeature('whatsapp')) {
+        alert('هذه الميزة متاحة للأعضاء الذهبيين فقط');
+        return;
+    }
     const client = clients.find(c => c.name === tx.clientName);
     const phoneNumber = client?.whatsapp || client?.phone;
 
@@ -970,11 +987,27 @@ export default function TransactionsPage() {
                         </div>
 
                         <div className="grid grid-cols-2 gap-3">
-                            <button onClick={() => handlePrint(tx)} className="flex items-center justify-center gap-2 py-3 bg-gray-200 rounded-xl font-bold text-gray-700 hover:bg-gray-300">
+                            <button 
+                                onClick={() => handlePrint(tx)} 
+                                className={`flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-all relative overflow-hidden ${
+                                    canAccessFeature('print') 
+                                    ? 'bg-gray-200 text-gray-700 hover:bg-gray-300' 
+                                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                }`}
+                            >
                                 <Printer className="w-4 h-4" /> طباعة
+                                {!canAccessFeature('print') && <span className="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-[8px] px-1 font-black">PRO</span>}
                             </button>
-                            <button onClick={() => handleWhatsApp(tx)} className="flex items-center justify-center gap-2 py-3 bg-green-100 text-green-700 rounded-xl font-bold hover:bg-green-200">
+                            <button 
+                                onClick={() => handleWhatsApp(tx)} 
+                                className={`flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-all relative overflow-hidden ${
+                                    canAccessFeature('whatsapp') 
+                                    ? 'bg-green-100 text-green-700 hover:bg-green-200' 
+                                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                }`}
+                            >
                                 <Send className="w-4 h-4" /> واتساب للعميل
+                                {!canAccessFeature('whatsapp') && <span className="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-[8px] px-1 font-black">PRO</span>}
                             </button>
                         </div>
 

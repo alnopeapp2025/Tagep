@@ -1,305 +1,266 @@
 import { useState, useEffect } from 'react';
-import { 
-  Lock, Shield, Save, LogOut, CheckCircle2, XCircle, 
-  Layout, Eye, EyeOff, Users, BookOpen, Key
-} from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Lock, Settings, Users, CheckCircle2, XCircle, Shield, Key, LogOut, ArrowRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { getGlobalSettings, saveGlobalSettings, GlobalSettings } from '@/lib/store';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { 
+    getGlobalSettings, saveGlobalSettings, GlobalSettings, 
+    getSubscriptionRequests, approveSubscription, SubscriptionRequest,
+    UserRole
+} from '@/lib/store';
 
 export default function AdminPanel() {
+  const navigate = useNavigate();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   
-  const [settings, setSettings] = useState<GlobalSettings | null>(null);
-  const [activeTab, setActiveTab] = useState<'permissions' | 'content' | 'settings'>('permissions');
-  const [newAdminPass, setNewAdminPass] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
+  const [settings, setSettings] = useState<GlobalSettings>(getGlobalSettings());
+  const [requests, setRequests] = useState<SubscriptionRequest[]>([]);
 
-  // Simple Hash for Admin
-  const hash = (pwd: string) => btoa(pwd).split('').reverse().join('');
+  // Simple Hash for Admin (Match Store)
+  const hashPassword = (pwd: string) => btoa(pwd).split('').reverse().join('');
 
   useEffect(() => {
-    const currentSettings = getGlobalSettings();
-    setSettings(currentSettings);
+    // Refresh requests periodically
+    const interval = setInterval(() => {
+        setRequests(getSubscriptionRequests());
+    }, 2000);
+    setRequests(getSubscriptionRequests());
+    return () => clearInterval(interval);
   }, []);
 
   const handleLogin = () => {
-    if (!settings) return;
-    if (username === 'admins' && hash(password) === settings.adminPasswordHash) {
-      setIsAuthenticated(true);
-      setError('');
+    if (hashPassword(password) === settings.adminPasswordHash) {
+        setIsAuthenticated(true);
+        setError('');
     } else {
-      setError('بيانات الدخول غير صحيحة');
+        setError('كلمة المرور غير صحيحة');
     }
   };
 
-  const handleSaveSettings = () => {
-    if (!settings) return;
-    saveGlobalSettings(settings);
-    setSuccessMsg('تم حفظ الإعدادات بنجاح');
-    setTimeout(() => setSuccessMsg(''), 2000);
-  };
-
-  const handleChangeAdminPassword = () => {
-    if (!settings || !newAdminPass) return;
-    const updated = { ...settings, adminPasswordHash: hash(newAdminPass) };
-    setSettings(updated);
-    saveGlobalSettings(updated);
-    setNewAdminPass('');
-    setSuccessMsg('تم تغيير كلمة مرور الأدمن');
-    setTimeout(() => setSuccessMsg(''), 2000);
-  };
-
-  const togglePermission = (page: keyof GlobalSettings['pagePermissions'], role: 'visitor' | 'member' | 'golden') => {
-    if (!settings) return;
-    const current = settings.pagePermissions[page];
-    const updated = current.includes(role) 
-      ? current.filter(r => r !== role)
-      : [...current, role];
+  const handlePermissionChange = (
+    type: 'page' | 'feature', 
+    key: string, 
+    role: UserRole, 
+    checked: boolean
+  ) => {
+    const newSettings = { ...settings };
     
-    setSettings({
-      ...settings,
-      pagePermissions: {
-        ...settings.pagePermissions,
-        [page]: updated
-      }
-    });
+    if (type === 'page') {
+        const list = newSettings.pagePermissions[key as keyof GlobalSettings['pagePermissions']];
+        if (checked && !list.includes(role)) list.push(role);
+        if (!checked) {
+            const idx = list.indexOf(role);
+            if (idx > -1) list.splice(idx, 1);
+        }
+    } else {
+        const list = newSettings.featurePermissions[key as keyof GlobalSettings['featurePermissions']];
+        if (checked && !list.includes(role)) list.push(role);
+        if (!checked) {
+            const idx = list.indexOf(role);
+            if (idx > -1) list.splice(idx, 1);
+        }
+    }
+
+    setSettings(newSettings);
+    saveGlobalSettings(newSettings);
   };
 
-  const toggleContent = (type: keyof GlobalSettings['contentVisibility'], role: 'visitor' | 'member' | 'golden') => {
-    if (!settings) return;
-    const current = settings.contentVisibility[type];
-    const updated = current.includes(role) 
-      ? current.filter(r => r !== role)
-      : [...current, role];
-    
-    setSettings({
-      ...settings,
-      contentVisibility: {
-        ...settings.contentVisibility,
-        [type]: updated
-      }
-    });
+  const handleApprove = async (id: number) => {
+    if(confirm('هل أنت متأكد من تفعيل العضوية الذهبية لهذا المستخدم؟')) {
+        await approveSubscription(id);
+        setRequests(getSubscriptionRequests()); // Refresh
+    }
   };
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#eef2f6] p-4" dir="rtl">
-        <div className="w-full max-w-md bg-[#eef2f6] rounded-3xl shadow-3d p-8 border border-white/50">
-          <div className="text-center mb-8">
-            <div className="w-20 h-20 bg-gray-800 rounded-2xl mx-auto shadow-3d flex items-center justify-center mb-4 text-white">
-              <Shield className="w-10 h-10" />
+        <div className="min-h-screen flex items-center justify-center bg-[#eef2f6] p-4" dir="rtl">
+            <div className="bg-[#eef2f6] p-8 rounded-3xl shadow-3d border border-white/50 w-full max-w-md text-center">
+                <div className="w-20 h-20 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-6 shadow-3d text-white">
+                    <Shield className="w-10 h-10" />
+                </div>
+                <h1 className="text-2xl font-black text-gray-800 mb-6">لوحة التحكم الإدارية</h1>
+                <div className="space-y-4">
+                    <div className="relative">
+                        <Input 
+                            type="password" 
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="كلمة المرور"
+                            className="bg-white shadow-3d-inset border-none pl-10 h-12 text-center"
+                        />
+                        <Key className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
+                    </div>
+                    {error && <p className="text-red-500 text-sm font-bold">{error}</p>}
+                    <button 
+                        onClick={handleLogin}
+                        className="w-full py-3 bg-gray-800 text-white rounded-xl font-bold shadow-3d hover:scale-[1.02] transition-transform"
+                    >
+                        دخول
+                    </button>
+                    <button 
+                        onClick={() => navigate('/')}
+                        className="w-full py-3 bg-gray-200 text-gray-600 rounded-xl font-bold hover:bg-gray-300 transition-colors"
+                    >
+                        عودة للموقع
+                    </button>
+                </div>
             </div>
-            <h1 className="text-2xl font-black text-gray-800">لوحة تحكم النظام</h1>
-            <p className="text-gray-500 text-sm">منطقة الإدارة (Admins Only)</p>
-          </div>
-
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>اسم المستخدم</Label>
-              <Input 
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="bg-white shadow-3d-inset border-none text-center"
-                placeholder="Username"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>كلمة المرور</Label>
-              <Input 
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="bg-white shadow-3d-inset border-none text-center"
-                placeholder="••••"
-              />
-            </div>
-            
-            {error && <p className="text-red-500 text-center text-sm font-bold">{error}</p>}
-
-            <button 
-              onClick={handleLogin}
-              className="w-full py-4 bg-gray-800 text-white rounded-xl font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all"
-            >
-              دخول
-            </button>
-          </div>
         </div>
-      </div>
     );
   }
 
-  if (!settings) return null;
+  const PermissionRow = ({ label, type, pKey }: { label: string, type: 'page' | 'feature', pKey: string }) => {
+    // @ts-ignore
+    const list = type === 'page' ? settings.pagePermissions[pKey] : settings.featurePermissions[pKey];
+    
+    return (
+        <div className="flex items-center justify-between p-4 bg-white rounded-xl shadow-sm border border-gray-100">
+            <span className="font-bold text-gray-700">{label}</span>
+            <div className="flex gap-4">
+                <div className="flex items-center gap-2">
+                    <Label className="text-xs text-gray-500">زائر</Label>
+                    <Switch 
+                        checked={list.includes('visitor')}
+                        onCheckedChange={(c) => handlePermissionChange(type, pKey, 'visitor', c)}
+                    />
+                </div>
+                <div className="flex items-center gap-2">
+                    <Label className="text-xs text-blue-500">عضو</Label>
+                    <Switch 
+                        checked={list.includes('member')}
+                        onCheckedChange={(c) => handlePermissionChange(type, pKey, 'member', c)}
+                    />
+                </div>
+                <div className="flex items-center gap-2">
+                    <Label className="text-xs text-yellow-600">ذهبي</Label>
+                    <Switch 
+                        checked={list.includes('golden')}
+                        onCheckedChange={(c) => handlePermissionChange(type, pKey, 'golden', c)}
+                    />
+                </div>
+            </div>
+        </div>
+    );
+  };
 
   return (
-    <div className="min-h-screen bg-[#eef2f6] pb-20" dir="rtl">
-      <header className="bg-white/50 backdrop-blur-sm sticky top-0 z-50 border-b border-white shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Shield className="w-6 h-6 text-gray-800" />
-            <h1 className="text-xl font-black text-gray-800">لوحة التحكم</h1>
-          </div>
-          <button 
-            onClick={() => setIsAuthenticated(false)}
-            className="flex items-center gap-2 text-red-600 font-bold hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors"
-          >
-            <LogOut className="w-4 h-4" /> خروج
-          </button>
-        </div>
-      </header>
-
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        
-        {successMsg && (
-          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-green-600 text-white px-6 py-3 rounded-full shadow-lg font-bold flex items-center gap-2 animate-in slide-in-from-bottom-5 z-50">
-            <CheckCircle2 className="w-5 h-5" /> {successMsg}
-          </div>
-        )}
-
-        <div className="grid grid-cols-3 gap-4 mb-8">
-          <button 
-            onClick={() => setActiveTab('permissions')}
-            className={`p-4 rounded-2xl shadow-3d font-bold transition-all flex flex-col items-center gap-2 ${activeTab === 'permissions' ? 'bg-blue-600 text-white' : 'bg-[#eef2f6] text-gray-600'}`}
-          >
-            <Layout className="w-6 h-6" /> صلاحيات الصفحات
-          </button>
-          <button 
-            onClick={() => setActiveTab('content')}
-            className={`p-4 rounded-2xl shadow-3d font-bold transition-all flex flex-col items-center gap-2 ${activeTab === 'content' ? 'bg-orange-600 text-white' : 'bg-[#eef2f6] text-gray-600'}`}
-          >
-            <BookOpen className="w-6 h-6" /> المحتوى والميزات
-          </button>
-          <button 
-            onClick={() => setActiveTab('settings')}
-            className={`p-4 rounded-2xl shadow-3d font-bold transition-all flex flex-col items-center gap-2 ${activeTab === 'settings' ? 'bg-gray-800 text-white' : 'bg-[#eef2f6] text-gray-600'}`}
-          >
-            <Key className="w-6 h-6" /> إعدادات الأدمن
-          </button>
-        </div>
-
-        {activeTab === 'permissions' && (
-          <div className="space-y-6 animate-in fade-in">
-            <div className="bg-[#eef2f6] p-6 rounded-3xl shadow-3d border border-white/50">
-              <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                <Layout className="w-5 h-5 text-blue-600" />
-                التحكم في ظهور الصفحات
-              </h2>
-              
-              <div className="space-y-4">
-                {Object.keys(settings.pagePermissions).map((page) => (
-                  <div key={page} className="flex items-center justify-between bg-white p-4 rounded-xl shadow-sm">
-                    <span className="font-bold text-gray-700 capitalize">{page}</span>
-                    <div className="flex gap-2">
-                      {['visitor', 'member', 'golden'].map((role) => (
-                        <button
-                          key={role}
-                          // @ts-ignore
-                          onClick={() => togglePermission(page, role)}
-                          // @ts-ignore
-                          className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${settings.pagePermissions[page].includes(role) 
-                            ? (role === 'golden' ? 'bg-yellow-100 text-yellow-700 border border-yellow-300' : role === 'member' ? 'bg-blue-100 text-blue-700 border border-blue-300' : 'bg-gray-100 text-gray-700 border border-gray-300')
-                            : 'bg-gray-50 text-gray-300 border border-transparent'}`}
-                        >
-                          {role === 'visitor' ? 'زائر' : role === 'member' ? 'عضو' : 'ذهبي'}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
+    <div className="min-h-screen bg-[#eef2f6] p-4 sm:p-8" dir="rtl">
+        <header className="max-w-5xl mx-auto mb-8 flex justify-between items-center">
+            <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-gray-800 rounded-xl flex items-center justify-center text-white shadow-3d">
+                    <Settings className="w-6 h-6" />
+                </div>
+                <div>
+                    <h1 className="text-2xl font-black text-gray-800">لوحة التحكم</h1>
+                    <p className="text-gray-500 text-sm">إدارة الصلاحيات والطلبات</p>
+                </div>
             </div>
-            <button onClick={handleSaveSettings} className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all flex items-center justify-center gap-2">
-              <Save className="w-5 h-5" /> حفظ التغييرات
+            <button 
+                onClick={() => navigate('/')}
+                className="flex items-center gap-2 px-4 py-2 bg-white text-gray-600 rounded-xl font-bold shadow-sm hover:bg-gray-50"
+            >
+                <LogOut className="w-4 h-4" /> خروج
             </button>
-          </div>
-        )}
+        </header>
 
-        {activeTab === 'content' && (
-          <div className="space-y-6 animate-in fade-in">
-            <div className="bg-[#eef2f6] p-6 rounded-3xl shadow-3d border border-white/50">
-              <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                <Eye className="w-5 h-5 text-orange-600" />
-                إخفاء/إظهار المحتوى
-              </h2>
-              
-              <div className="space-y-4">
-                <div className="flex items-center justify-between bg-white p-4 rounded-xl shadow-sm">
-                    <span className="font-bold text-gray-700">أرقام المعقبين المنجزين</span>
-                    <div className="flex gap-2">
-                      {['visitor', 'member', 'golden'].map((role) => (
-                        <button
-                          key={role}
-                          // @ts-ignore
-                          onClick={() => toggleContent('achieversNumbers', role)}
-                          // @ts-ignore
-                          className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${settings.contentVisibility.achieversNumbers.includes(role) 
-                            ? 'bg-green-100 text-green-700 border border-green-300'
-                            : 'bg-gray-50 text-gray-300'}`}
-                        >
-                          {role === 'visitor' ? 'زائر' : role === 'member' ? 'عضو' : 'ذهبي'}
-                        </button>
-                      ))}
+        <div className="max-w-5xl mx-auto">
+            <Tabs defaultValue="permissions" className="w-full">
+                <TabsList className="grid w-full grid-cols-2 mb-6 bg-white shadow-3d p-1 rounded-xl h-14">
+                    <TabsTrigger value="permissions" className="rounded-lg h-12 font-bold data-[state=active]:bg-gray-100">التحكم في الصلاحيات</TabsTrigger>
+                    <TabsTrigger value="requests" className="rounded-lg h-12 font-bold data-[state=active]:bg-gray-100 relative">
+                        طلبات التفعيل
+                        {requests.filter(r => r.status === 'pending').length > 0 && (
+                            <span className="absolute top-2 left-2 w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                        )}
+                    </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="permissions" className="space-y-6">
+                    <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-6 border border-white/50">
+                        <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                            <ArrowRight className="w-5 h-5 text-blue-600" /> صلاحيات الصفحات
+                        </h3>
+                        <div className="space-y-3">
+                            <PermissionRow label="صفحة المعاملات" type="page" pKey="transactions" />
+                            <PermissionRow label="صفحة الحسابات" type="page" pKey="accounts" />
+                            <PermissionRow label="صفحة التقارير" type="page" pKey="reports" />
+                            <PermissionRow label="صفحة العملاء" type="page" pKey="clients" />
+                            <PermissionRow label="صفحة المعقبين" type="page" pKey="agents" />
+                            <PermissionRow label="صفحة المنجزين" type="page" pKey="achievers" />
+                            <PermissionRow label="صفحة المنصرفات" type="page" pKey="expenses" />
+                            <PermissionRow label="صفحة الحاسبة" type="page" pKey="calculator" />
+                        </div>
                     </div>
-                </div>
 
-                <div className="flex items-center justify-between bg-white p-4 rounded-xl shadow-sm">
-                    <span className="font-bold text-gray-700">الدروس التعليمية</span>
-                    <div className="flex gap-2">
-                      {['visitor', 'member', 'golden'].map((role) => (
-                        <button
-                          key={role}
-                          // @ts-ignore
-                          onClick={() => toggleContent('lessons', role)}
-                          // @ts-ignore
-                          className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${settings.contentVisibility.lessons.includes(role) 
-                            ? 'bg-green-100 text-green-700 border border-green-300'
-                            : 'bg-gray-50 text-gray-300'}`}
-                        >
-                          {role === 'visitor' ? 'زائر' : role === 'member' ? 'عضو' : 'ذهبي'}
-                        </button>
-                      ))}
+                    <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-6 border border-white/50">
+                        <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                            <ArrowRight className="w-5 h-5 text-orange-600" /> صلاحيات الأزرار والوظائف (PRO)
+                        </h3>
+                        <div className="space-y-3">
+                            <PermissionRow label="زر النسخ الاحتياطي" type="feature" pKey="backup" />
+                            <PermissionRow label="زر دخول الموظفين" type="feature" pKey="employeeLogin" />
+                            <PermissionRow label="زر واتساب للعميل" type="feature" pKey="whatsapp" />
+                            <PermissionRow label="زر الطباعة" type="feature" pKey="print" />
+                            <PermissionRow label="زر التحويل بين البنوك" type="feature" pKey="transfer" />
+                            <PermissionRow label="زر حذف مصروف" type="feature" pKey="deleteExpense" />
+                            <PermissionRow label="أرقام معقبين منجزين" type="feature" pKey="achieversNumbers" />
+                            <PermissionRow label="دروس الخدمات العامة" type="feature" pKey="lessons" />
+                            <PermissionRow label="إحصائيات الشهر (تقارير)" type="feature" pKey="monthStats" />
+                        </div>
                     </div>
-                </div>
-              </div>
-            </div>
-            <button onClick={handleSaveSettings} className="w-full py-4 bg-orange-600 text-white rounded-xl font-bold shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all flex items-center justify-center gap-2">
-              <Save className="w-5 h-5" /> حفظ التغييرات
-            </button>
-          </div>
-        )}
+                </TabsContent>
 
-        {activeTab === 'settings' && (
-          <div className="space-y-6 animate-in fade-in">
-            <div className="bg-[#eef2f6] p-6 rounded-3xl shadow-3d border border-white/50">
-              <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                <Key className="w-5 h-5 text-gray-800" />
-                تغيير كلمة مرور الأدمن
-              </h2>
-              
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>كلمة المرور الجديدة</Label>
-                  <Input 
-                    type="password"
-                    value={newAdminPass}
-                    onChange={(e) => setNewAdminPass(e.target.value)}
-                    className="bg-white shadow-3d-inset border-none"
-                    placeholder="أدخل كلمة المرور الجديدة"
-                  />
-                </div>
-                <button onClick={handleChangeAdminPassword} className="w-full py-3 bg-gray-800 text-white rounded-xl font-bold shadow-lg">
-                  تحديث كلمة المرور
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-      </div>
+                <TabsContent value="requests">
+                    <div className="bg-[#eef2f6] rounded-3xl shadow-3d p-6 border border-white/50 min-h-[400px]">
+                        <h3 className="text-xl font-bold text-gray-800 mb-6">طلبات العضوية الذهبية</h3>
+                        
+                        {requests.length === 0 ? (
+                            <div className="text-center py-10 text-gray-500">لا توجد طلبات حالياً</div>
+                        ) : (
+                            <div className="space-y-4">
+                                {requests.map(req => (
+                                    <div key={req.id} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+                                        <div className="flex items-center gap-4">
+                                            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg ${req.status === 'pending' ? 'bg-orange-500' : 'bg-green-500'}`}>
+                                                {req.userName.charAt(0)}
+                                            </div>
+                                            <div>
+                                                <h4 className="font-bold text-gray-800">{req.userName}</h4>
+                                                <p className="text-sm text-gray-500 font-mono">{req.phone}</p>
+                                                <div className="flex gap-2 text-xs mt-1">
+                                                    <span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded">المدة: {req.duration}</span>
+                                                    <span className="text-gray-400">{new Date(req.createdAt).toLocaleDateString('ar-SA')}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        {req.status === 'pending' ? (
+                                            <button 
+                                                onClick={() => handleApprove(req.id)}
+                                                className="px-6 py-2 bg-green-600 text-white rounded-xl font-bold shadow-lg hover:bg-green-700 transition-all flex items-center gap-2"
+                                            >
+                                                <CheckCircle2 className="w-4 h-4" />
+                                                تفعيل العضوية
+                                            </button>
+                                        ) : (
+                                            <div className="flex items-center gap-2 text-green-600 font-bold bg-green-50 px-4 py-2 rounded-xl">
+                                                <CheckCircle2 className="w-5 h-5" />
+                                                تم التفعيل
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </TabsContent>
+            </Tabs>
+        </div>
     </div>
   );
 }

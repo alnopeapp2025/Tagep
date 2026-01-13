@@ -99,21 +99,42 @@ export interface ClientRefundRecord {
 }
 
 // --- Admin & Settings Types ---
+export type UserRole = 'visitor' | 'member' | 'golden';
+
+export interface SubscriptionRequest {
+  id: number;
+  userId: number;
+  userName: string;
+  phone: string;
+  duration: 'شهر' | 'سنة';
+  status: 'pending' | 'approved';
+  createdAt: number;
+}
+
 export interface GlobalSettings {
   adminPasswordHash: string; // Default: 1234 hashed
+  // Page Access (Who can enter the page)
   pagePermissions: {
-    transactions: ('visitor' | 'member' | 'golden')[];
-    accounts: ('visitor' | 'member' | 'golden')[];
-    reports: ('visitor' | 'member' | 'golden')[];
-    clients: ('visitor' | 'member' | 'golden')[];
-    agents: ('visitor' | 'member' | 'golden')[];
-    achievers: ('visitor' | 'member' | 'golden')[];
-    expenses: ('visitor' | 'member' | 'golden')[];
-    calculator: ('visitor' | 'member' | 'golden')[];
+    transactions: UserRole[];
+    accounts: UserRole[];
+    reports: UserRole[];
+    clients: UserRole[];
+    agents: UserRole[];
+    achievers: UserRole[];
+    expenses: UserRole[];
+    calculator: UserRole[];
   };
-  contentVisibility: {
-    achieversNumbers: ('visitor' | 'member' | 'golden')[];
-    lessons: ('visitor' | 'member' | 'golden')[];
+  // Feature Access (Who can click specific buttons)
+  featurePermissions: {
+    backup: UserRole[];         // النسخ الاحتياطي
+    employeeLogin: UserRole[];  // دخول الموظفين
+    whatsapp: UserRole[];       // واتساب للعميل
+    print: UserRole[];          // طباعة
+    transfer: UserRole[];       // تحويل بين البنوك
+    deleteExpense: UserRole[];  // حذف مصروف
+    achieversNumbers: UserRole[]; // أرقام معقبين منجزين
+    lessons: UserRole[];        // تعلم الخدمات العامة
+    monthStats: UserRole[];     // إحصائيات الشهر (معاملات/أرباح)
   };
 }
 
@@ -135,7 +156,8 @@ const AGENT_TRANSFERS_KEY = 'moaqeb_agent_transfers_v1';
 const CLIENT_REFUNDS_KEY = 'moaqeb_client_refunds_v1';
 const CURRENT_USER_KEY = 'moaqeb_current_user_v1'; // Session Storage
 const LAST_BACKUP_KEY = 'moaqeb_last_backup_v1';
-const SETTINGS_KEY = 'moaqeb_global_settings_v1';
+const SETTINGS_KEY = 'moaqeb_global_settings_v2'; // Updated key
+const SUB_REQUESTS_KEY = 'moaqeb_sub_requests_v1';
 
 // --- User Management (Supabase Auth) ---
 
@@ -157,16 +179,32 @@ const DEFAULT_SETTINGS: GlobalSettings = {
     expenses: ['visitor', 'member', 'golden'],
     calculator: ['visitor', 'member', 'golden'],
   },
-  contentVisibility: {
-    achieversNumbers: ['visitor', 'member', 'golden'],
-    lessons: ['visitor', 'member', 'golden'],
+  featurePermissions: {
+    backup: ['golden'],
+    employeeLogin: ['golden'],
+    whatsapp: ['member', 'golden'],
+    print: ['member', 'golden'],
+    transfer: ['golden'],
+    deleteExpense: ['golden'],
+    achieversNumbers: ['golden'],
+    lessons: ['golden'],
+    monthStats: ['golden'],
   }
 };
 
 export const getGlobalSettings = (): GlobalSettings => {
   try {
     const stored = localStorage.getItem(SETTINGS_KEY);
-    return stored ? JSON.parse(stored) : DEFAULT_SETTINGS;
+    if (stored) {
+        const parsed = JSON.parse(stored);
+        // Merge with default to ensure new keys exist
+        return { 
+            ...DEFAULT_SETTINGS, 
+            ...parsed,
+            featurePermissions: { ...DEFAULT_SETTINGS.featurePermissions, ...(parsed.featurePermissions || {}) }
+        };
+    }
+    return DEFAULT_SETTINGS;
   } catch {
     return DEFAULT_SETTINGS;
   }
@@ -176,9 +214,79 @@ export const saveGlobalSettings = (settings: GlobalSettings) => {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 };
 
+// --- Subscription Requests ---
+
+export const createSubscriptionRequest = (userId: number, userName: string, phone: string, duration: 'شهر' | 'سنة') => {
+    const requests: SubscriptionRequest[] = getSubscriptionRequests();
+    // Check if pending request exists
+    if (requests.find(r => r.userId === userId && r.status === 'pending')) {
+        return { success: false, message: 'لديك طلب قيد المراجعة بالفعل' };
+    }
+
+    const newReq: SubscriptionRequest = {
+        id: Date.now(),
+        userId,
+        userName,
+        phone,
+        duration,
+        status: 'pending',
+        createdAt: Date.now()
+    };
+    
+    requests.push(newReq);
+    localStorage.setItem(SUB_REQUESTS_KEY, JSON.stringify(requests));
+    return { success: true };
+};
+
+export const getSubscriptionRequests = (): SubscriptionRequest[] => {
+    try {
+        const stored = localStorage.getItem(SUB_REQUESTS_KEY);
+        return stored ? JSON.parse(stored) : [];
+    } catch { return []; }
+};
+
+export const approveSubscription = async (requestId: number) => {
+    const requests = getSubscriptionRequests();
+    const reqIndex = requests.findIndex(r => r.id === requestId);
+    
+    if (reqIndex === -1) return { success: false };
+
+    const req = requests[reqIndex];
+    
+    // 1. Update User Role in DB (Supabase)
+    try {
+        const { error } = await supabase
+            .from('users')
+            .update({ role: 'golden' }) // Assuming 'role' column exists or we handle logic locally
+            .eq('id', req.userId);
+        
+        // Note: Since we are using a custom auth table, we might need to ensure the column exists.
+        // If not, we can simulate by storing "Golden Users IDs" in local storage settings as a fallback.
+        if (error) {
+            // Fallback: Store in Local Settings
+            const currentSettings = getGlobalSettings();
+            // We'll use a separate list for golden users if DB fails or column missing
+            const goldenUsers = JSON.parse(localStorage.getItem('moaqeb_golden_users_v1') || '[]');
+            if (!goldenUsers.includes(req.userId)) {
+                goldenUsers.push(req.userId);
+                localStorage.setItem('moaqeb_golden_users_v1', JSON.stringify(goldenUsers));
+            }
+        }
+    } catch (e) {
+        console.error(e);
+    }
+
+    // 2. Update Request Status
+    requests[reqIndex].status = 'approved';
+    localStorage.setItem(SUB_REQUESTS_KEY, JSON.stringify(requests));
+    
+    return { success: true };
+};
+
+// ... [Rest of existing functions: registerUser, loginUser, etc. remain unchanged] ...
+
 export const registerUser = async (user: Omit<User, 'id' | 'createdAt' | 'passwordHash'> & { password: string }) => {
   try {
-    // 1. Check if phone exists
     const { data: existingUsers, error: checkError } = await supabase
       .from('users')
       .select('phone')
@@ -193,12 +301,7 @@ export const registerUser = async (user: Omit<User, 'id' | 'createdAt' | 'passwo
       return { success: false, message: 'رقم الهاتف مسجل مسبقاً' };
     }
 
-    // 2. Insert new user
     const passwordHash = hashPassword(user.password);
-    
-    // Determine Role (Default to member, logic can be enhanced)
-    // For now, we assume standard registration is 'member'. 
-    // Golden is assigned manually or via code (future).
     const role = user.role || 'member'; 
 
     const { error: insertError } = await supabase
@@ -210,8 +313,6 @@ export const registerUser = async (user: Omit<User, 'id' | 'createdAt' | 'passwo
           password_hash: passwordHash,
           security_question: user.securityQuestion,
           security_answer: user.securityAnswer,
-          // We would store role/parent_id in DB if schema supported it, 
-          // for now we rely on the object passed, assuming DB has columns or we handle locally for Employees
         }
       ]);
 
@@ -227,13 +328,7 @@ export const registerUser = async (user: Omit<User, 'id' | 'createdAt' | 'passwo
   }
 };
 
-// Function to create Employee (Local/Cloud hybrid for now as per constraints)
 export const createEmployee = async (employeeData: { name: string, password: string, permissions: string[] }, parentUser: User) => {
-    // Ideally this goes to Supabase users table with parent_id
-    // For this implementation, we will simulate it or use a separate local storage for employees if DB schema isn't updated for it yet.
-    // Assuming we want to use the existing login system:
-    
-    // We will prefix employee phones with parent ID to ensure uniqueness: "EMP-[ParentID]-[Random]"
     const fakePhone = `EMP-${parentUser.id}-${Math.floor(Math.random() * 1000)}`;
     
     const newUser: User = {
@@ -249,7 +344,6 @@ export const createEmployee = async (employeeData: { name: string, password: str
         permissions: employeeData.permissions
     };
 
-    // Save to Local Storage for Employees (Since we can't easily alter DB schema right now without SQL)
     const employees = getStoredEmployees();
     employees.push(newUser);
     localStorage.setItem('moaqeb_employees_v1', JSON.stringify(employees));
@@ -268,16 +362,13 @@ export const loginUser = async (phone: string, password: string) => {
   try {
     const passwordHash = hashPassword(password);
 
-    // 1. Check Local Employees First
     const employees = getStoredEmployees();
-    const emp = employees.find(e => e.officeName === phone && e.passwordHash === passwordHash); // Login with Name for employees? Or Phone?
-    // Let's stick to Phone/Name logic. If phone input matches employee name (as requested "اسم الموظف")
+    const emp = employees.find(e => e.officeName === phone && e.passwordHash === passwordHash);
     if (emp) {
          localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(emp));
          return { success: true, user: emp };
     }
 
-    // 2. Check Supabase Users
     const { data, error } = await supabase
       .from('users')
       .select('*')
@@ -289,7 +380,6 @@ export const loginUser = async (phone: string, password: string) => {
       return { success: false, message: 'بيانات الدخول غير صحيحة' };
     }
 
-    // Map DB columns to User interface
     const user: User = {
         id: data.id,
         officeName: data.office_name,
@@ -298,11 +388,10 @@ export const loginUser = async (phone: string, password: string) => {
         securityQuestion: data.security_question,
         securityAnswer: data.security_answer,
         createdAt: new Date(data.created_at).getTime(),
-        role: 'member' // Default role from DB is member. 
-        // In a real app, we'd fetch role from DB. For this demo, we can toggle via Admin Panel locally if we map IDs.
+        role: 'member' 
     };
     
-    // Check if this user is upgraded to Golden in Local Settings (Simulation)
+    // Check Local Golden Status Override
     const goldenUsers = JSON.parse(localStorage.getItem('moaqeb_golden_users_v1') || '[]');
     if (goldenUsers.includes(user.id)) {
         user.role = 'golden';
@@ -320,7 +409,6 @@ export const changePassword = async (phone: string, oldPass: string, newPass: st
   try {
     const oldHash = hashPassword(oldPass);
     
-    // 1. Verify old password
     const { data, error } = await supabase
       .from('users')
       .select('id')
@@ -332,7 +420,6 @@ export const changePassword = async (phone: string, oldPass: string, newPass: st
       return { success: false, message: 'كلمة المرور الحالية غير صحيحة' };
     }
 
-    // 2. Update to new password
     const newHash = hashPassword(newPass);
     const { error: updateError } = await supabase
       .from('users')
@@ -349,8 +436,6 @@ export const changePassword = async (phone: string, oldPass: string, newPass: st
     return { success: false, message: 'حدث خطأ غير متوقع' };
   }
 };
-
-// --- Password Recovery Functions ---
 
 export const verifySecurityInfo = async (phone: string, question: string, answer: string) => {
   try {
@@ -480,7 +565,6 @@ export const fetchTransactionsFromCloud = async (userId: number): Promise<Transa
 };
 
 export const updateTransactionStatusInCloud = async (id: number, updates: Partial<Transaction>) => {
-    // Map updates to snake_case
     const dbUpdates: any = {};
     if (updates.status) dbUpdates.status = updates.status;
     if (updates.agentPaid !== undefined) dbUpdates.agent_paid = updates.agentPaid;
@@ -515,7 +599,7 @@ export const addExpenseToCloud = async (expense: Expense, userId: number) => {
           title: expense.title,
           amount: expense.amount,
           bank: expense.bank,
-          date: expense.date // Sending date as BIGINT (Date.now())
+          date: expense.date 
         }
       ])
       .select();
@@ -545,8 +629,6 @@ export const fetchExpensesFromCloud = async (userId: number): Promise<Expense[]>
       return [];
     }
 
-    // Map DB columns to Expense interface
-    // Note: DB 'id' is int8 (number), 'date' is bigint (number)
     return data.map((item: any) => ({
       id: item.id,
       title: item.title,
@@ -636,7 +718,7 @@ export const addClientToCloud = async (client: Client, userId: number) => {
       .from('clients')
       .insert([
         {
-          user_id: userId, // Link to current user
+          user_id: userId, 
           name: client.name,
           phone: client.phone,
           whatsapp: client.whatsapp
@@ -661,7 +743,7 @@ export const fetchClientsFromCloud = async (userId: number): Promise<Client[]> =
     const { data, error } = await supabase
       .from('clients')
       .select('*')
-      .eq('user_id', userId) // Filter by user_id for privacy
+      .eq('user_id', userId) 
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -715,7 +797,6 @@ export const fetchAccountsFromCloud = async (userId: number) => {
 
 export const updateAccountInCloud = async (userId: number, bankName: string, balance: number, pendingBalance: number) => {
     try {
-        // Check if account exists for this user and bank
         const { data } = await supabase
             .from('accounts')
             .select('id')
@@ -724,7 +805,6 @@ export const updateAccountInCloud = async (userId: number, bankName: string, bal
             .maybeSingle();
 
         if (data) {
-            // Update
             await supabase
                 .from('accounts')
                 .update({ 
@@ -734,7 +814,6 @@ export const updateAccountInCloud = async (userId: number, bankName: string, bal
                 })
                 .eq('id', data.id);
         } else {
-            // Insert
             await supabase
                 .from('accounts')
                 .insert([{ 
@@ -750,7 +829,6 @@ export const updateAccountInCloud = async (userId: number, bankName: string, bal
         return false;
     }
 };
-
 
 // Transactions
 export const getStoredTransactions = (): Transaction[] => {
@@ -930,7 +1008,6 @@ export const createBackup = () => {
     timestamp: Date.now()
   };
   
-  // Save backup timestamp
   localStorage.setItem(LAST_BACKUP_KEY, Date.now().toString());
   
   return JSON.stringify(data);

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Calendar, CheckCircle, XCircle, DollarSign, Users, ArrowUpRight, ArrowDownLeft, Eye, FileText } from 'lucide-react';
-import { getStoredTransactions, Transaction, getStoredAgentTransfers, AgentTransferRecord, getCurrentUser, fetchTransactionsFromCloud } from '@/lib/store';
+import { ArrowRight, Calendar, CheckCircle, XCircle, DollarSign, Users, ArrowUpRight, ArrowDownLeft, Eye, FileText, Lock } from 'lucide-react';
+import { getStoredTransactions, Transaction, getStoredAgentTransfers, AgentTransferRecord, getCurrentUser, fetchTransactionsFromCloud, getGlobalSettings, GlobalSettings } from '@/lib/store';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -25,6 +25,8 @@ export default function ReportsPage() {
 
   const [agentTransfers, setAgentTransfers] = useState<AgentTransferRecord[]>([]);
   const [refunds, setRefunds] = useState<Transaction[]>([]);
+  const [currentUser, setCurrentUser] = useState(getCurrentUser());
+  const [settings, setSettings] = useState<GlobalSettings | null>(null);
 
   // Details Modal
   const [detailOpen, setDetailOpen] = useState(false);
@@ -33,6 +35,8 @@ export default function ReportsPage() {
 
   useEffect(() => {
     const user = getCurrentUser();
+    setCurrentUser(user);
+    setSettings(getGlobalSettings());
     
     const loadData = async () => {
         let txs: Transaction[] = [];
@@ -49,6 +53,13 @@ export default function ReportsPage() {
     };
     loadData();
   }, []);
+
+  const canAccessFeature = (feature: keyof GlobalSettings['featurePermissions']) => {
+    if (!settings) return true;
+    const userRole = currentUser?.role || 'visitor';
+    // @ts-ignore
+    return settings.featurePermissions[feature].includes(userRole);
+  };
 
   const calculateStats = (txs: Transaction[]) => {
     const now = new Date();
@@ -158,19 +169,27 @@ export default function ReportsPage() {
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const StatCard = ({ title, value, icon: Icon, colorClass, valueColorClass, subText, detailType }: any) => (
-    <div className="bg-[#eef2f6] rounded-2xl shadow-3d p-3 flex items-center gap-2 border border-white/50 relative group">
+  const StatCard = ({ title, value, icon: Icon, colorClass, valueColorClass, subText, detailType, restricted }: any) => (
+    <div className={`bg-[#eef2f6] rounded-2xl shadow-3d p-3 flex items-center gap-2 border border-white/50 relative group ${restricted ? 'opacity-70' : ''}`}>
       <div className={`w-8 h-8 rounded-xl shadow-3d-inset flex items-center justify-center ${colorClass}`}>
         <Icon className="w-4 h-4" />
       </div>
       <div>
         <p className="text-gray-500 text-[9px] font-bold mb-0.5">{title}</p>
-        <h3 className={`text-base font-black ${valueColorClass || 'text-gray-800'}`}>{value}</h3>
+        <h3 className={`text-base font-black ${valueColorClass || 'text-gray-800'}`}>
+            {restricted ? '---' : value}
+        </h3>
         {subText && <p className="text-[8px] text-gray-400">{subText}</p>}
       </div>
 
+      {restricted && (
+          <div className="absolute top-2 left-2">
+              <Lock className="w-3 h-3 text-yellow-500" />
+          </div>
+      )}
+
       {/* Eye Icon Overlay */}
-      {detailType && (
+      {detailType && !restricted && (
           <button 
             onClick={() => handleShowDetails(detailType)}
             className="absolute inset-0 bg-white/80 backdrop-blur-[1px] rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 cursor-pointer"
@@ -251,6 +270,7 @@ export default function ReportsPage() {
                     icon={Calendar} 
                     colorClass="text-purple-500" 
                     detailType="month"
+                    restricted={!canAccessFeature('monthStats')}
                 />
                 <StatCard 
                     title="أرباح الشهر الصافية" 
@@ -259,6 +279,7 @@ export default function ReportsPage() {
                     colorClass="text-green-600" 
                     valueColorClass="text-blue-600"
                     detailType="month"
+                    restricted={!canAccessFeature('monthStats')}
                 />
                  <StatCard 
                     title="تم الإنجاز" 
@@ -294,9 +315,10 @@ export default function ReportsPage() {
                     <p className="opacity-80 mb-1 font-medium text-[10px]">قيمة معاملات الأسبوع</p>
                     <h2 className="text-xl font-black">{stats.weekValue.toLocaleString()} ر.س</h2>
                 </div>
-                <div className="bg-indigo-600 text-white rounded-2xl shadow-3d p-4 text-center">
+                <div className="bg-indigo-600 text-white rounded-2xl shadow-3d p-4 text-center relative overflow-hidden">
                     <p className="opacity-80 mb-1 font-medium text-[10px]">قيمة معاملات الشهر</p>
-                    <h2 className="text-xl font-black">{stats.monthValue.toLocaleString()} ر.س</h2>
+                    <h2 className="text-xl font-black">{canAccessFeature('monthStats') ? `${stats.monthValue.toLocaleString()} ر.س` : '---'}</h2>
+                    {!canAccessFeature('monthStats') && <Lock className="absolute top-2 right-2 w-4 h-4 text-white/50" />}
                 </div>
                 <div className="bg-gray-800 text-white rounded-2xl shadow-3d p-4 text-center">
                     <p className="opacity-80 mb-1 font-medium text-[10px]">قيمة كل المعاملات</p>
