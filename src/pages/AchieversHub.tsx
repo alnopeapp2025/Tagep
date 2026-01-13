@@ -70,10 +70,10 @@ export default function AchieversHub() {
   };
 
   // Permission Check
-  const canView = (type: 'achieversNumbers' | 'lessons') => {
+  const canAccessFeature = (feature: 'achieversNumbers' | 'lessons') => {
     const role = currentUser?.role || 'visitor';
     // @ts-ignore
-    return settings.contentVisibility[type].includes(role);
+    return settings.featurePermissions[feature].includes(role);
   };
 
   return (
@@ -108,7 +108,7 @@ export default function AchieversHub() {
 
       {/* Content */}
       {activeTab === 'numbers' ? (
-        canView('achieversNumbers') ? (
+        canAccessFeature('achieversNumbers') ? (
             <div className="space-y-6">
                 <Dialog open={openAgent} onOpenChange={setOpenAgent}>
                     <DialogTrigger asChild>
@@ -149,13 +149,13 @@ export default function AchieversHub() {
             </div>
         ) : (
             <div className="text-center py-12 bg-[#eef2f6] rounded-3xl shadow-3d border border-white/50">
-                <Lock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <Lock className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
                 <h3 className="text-xl font-bold text-gray-600">هذا المحتوى غير متاح لعضويتك</h3>
                 <p className="text-gray-500 mt-2">يرجى الترقية للعضوية الذهبية للوصول</p>
             </div>
         )
       ) : (
-        canView('lessons') ? (
+        canAccessFeature('lessons') ? (
             <div className="space-y-6">
                 <Dialog open={openLesson} onOpenChange={setOpenLesson}>
                     <DialogTrigger asChild>
@@ -202,7 +202,7 @@ export default function AchieversHub() {
             </div>
         ) : (
             <div className="text-center py-12 bg-[#eef2f6] rounded-3xl shadow-3d border border-white/50">
-                <Lock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <Lock className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
                 <h3 className="text-xl font-bold text-gray-600">هذا المحتوى غير متاح لعضويتك</h3>
                 <p className="text-gray-500 mt-2">يرجى الترقية للعضوية الذهبية للوصول</p>
             </div>

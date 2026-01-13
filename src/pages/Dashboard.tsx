@@ -305,7 +305,7 @@ export default function Dashboard() {
               برنامج حسابات المعقبين
             </h1>
             <p className="text-gray-500 font-medium text-sm sm:text-base">
-              لوحة التحكم الرئيسية <span className="text-red-600 text-xs font-bold mr-1">v. 1</span>
+              لوحة التحكم الرئيسية <span className="text-red-600 text-xs font-bold mr-1">v. 3</span>
             </p>
           </div>
           
@@ -392,7 +392,7 @@ export default function Dashboard() {
                         <button className="relative flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
                             <UserCheck className="w-5 h-5 text-gray-600" />
                             دخول الموظفين
-                            {!canAccessFeature('employeeLogin') && <span className="text-[10px] text-yellow-600 font-black ml-auto border border-yellow-400 px-1 rounded">PRO</span>}
+                            {!canAccessFeature('employeeLogin') && <span className="text-[10px] text-yellow-900 bg-yellow-400 font-black ml-auto px-1 rounded">PRO</span>}
                             {canAccessFeature('employeeLogin') && (
                                 <span className="absolute top-2 left-2 flex items-center gap-1 text-[10px] text-red-600 font-black animate-pulse">
                                     <span className="w-2 h-2 rounded-full bg-red-600"></span>
@@ -483,7 +483,7 @@ export default function Dashboard() {
                       <button className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
                         <Database className="w-5 h-5 text-orange-600" />
                         النسخ الاحتياطي
-                        {!canAccessFeature('backup') && <span className="text-[10px] text-yellow-600 font-black ml-auto border border-yellow-400 px-1 rounded">PRO</span>}
+                        {!canAccessFeature('backup') && <span className="text-[10px] text-yellow-900 bg-yellow-400 font-black ml-auto px-1 rounded">PRO</span>}
                       </button>
                     </DialogTrigger>
                     <DialogContent className="bg-[#eef2f6] border-none shadow-3d" dir="rtl">
@@ -715,7 +715,7 @@ export default function Dashboard() {
 
                 <div className="absolute bottom-8 left-0 w-full px-6">
                    <div className="text-center text-xs text-gray-400">
-                      الإصدار 1.0.0
+                      الإصدار 3.0.0
                    </div>
                 </div>
               </SheetContent>
