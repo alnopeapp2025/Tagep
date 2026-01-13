@@ -10,6 +10,7 @@ import CalculatorPage from './pages/CalculatorPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import AchieversHub from './pages/AchieversHub';
+import AdminPanel from './pages/AdminPanel';
 
 function App() {
   return (
@@ -28,6 +29,10 @@ function App() {
           <Route path="/expenses" element={<ExpensesPage />} />
           <Route path="/calculator" element={<CalculatorPage />} />
           <Route path="/achievers" element={<AchieversHub />} />
+          
+          {/* Admin Routes (Both aliases) */}
+          <Route path="/@123abc" element={<AdminPanel />} />
+          <Route path="/admins" element={<AdminPanel />} />
         </Routes>
       </div>
     </Router>

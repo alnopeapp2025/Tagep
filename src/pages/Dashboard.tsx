@@ -24,7 +24,10 @@ import {
   User,
   changePassword,
   getLastBackupTime,
-  fetchTransactionsFromCloud // Added import
+  fetchTransactionsFromCloud,
+  getGlobalSettings,
+  GlobalSettings,
+  createEmployee
 } from '@/lib/store';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
@@ -46,6 +49,7 @@ export default function Dashboard() {
   const [achievers, setAchievers] = useState<{name: string, count: number, total: number}[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [settings, setSettings] = useState<GlobalSettings | null>(null);
   
   // Ticker State
   const [tickerIndex, setTickerIndex] = useState(0);
@@ -74,6 +78,12 @@ export default function Dashboard() {
   // Employee Login State
   const [empLoginOpen, setEmpLoginOpen] = useState(false);
 
+  // Employee Creation State (For Golden Members)
+  const [createEmpOpen, setCreateEmpOpen] = useState(false);
+  const [newEmpName, setNewEmpName] = useState('');
+  const [newEmpPass, setNewEmpPass] = useState('');
+  const [empSuccess, setEmpSuccess] = useState('');
+
   // Delete My Data State
   const [deleteMyDataOpen, setDeleteMyDataOpen] = useState(false);
   
@@ -91,6 +101,10 @@ export default function Dashboard() {
   const [passLoading, setPassLoading] = useState(false);
 
   useEffect(() => {
+    // Load Settings
+    const globalSettings = getGlobalSettings();
+    setSettings(globalSettings);
+
     // Load User
     const user = getCurrentUser();
     setCurrentUser(user);
@@ -98,7 +112,6 @@ export default function Dashboard() {
     const loadData = async () => {
         let txs: Transaction[] = [];
         if (user) {
-            // Fetch latest transactions from cloud to ensure stats are correct
             txs = await fetchTransactionsFromCloud(user.id);
         } else {
             txs = getStoredTransactions();
@@ -107,7 +120,6 @@ export default function Dashboard() {
         setTransactions(txs);
         setAchievers(calculateAchievers(txs));
 
-        // Calculate Ticker Stats
         const now = Date.now();
         const startOfWeek = new Date();
         startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
@@ -120,15 +132,12 @@ export default function Dashboard() {
     };
 
     loadData();
-
-    // Load Backup Time
     setLastBackup(getLastBackupTime());
 
     const interval = setInterval(() => {
       setTickerIndex(prev => (prev + 1) % 3);
     }, 4000);
 
-    // Random Number Animation for Pro Activation
     const randomInterval = setInterval(() => {
         setActivationPlaceholder(Math.floor(10000 + Math.random() * 90000).toString());
     }, 2000);
@@ -142,6 +151,16 @@ export default function Dashboard() {
   const handleLogout = () => {
     logoutUser();
     navigate('/login');
+  };
+
+  const handleCreateEmployee = async () => {
+    if (!currentUser || !newEmpName || !newEmpPass) return;
+    const res = await createEmployee({ name: newEmpName, password: newEmpPass, permissions: [] }, currentUser);
+    if (res.success) {
+        setEmpSuccess(`تم إنشاء حساب الموظف بنجاح. اسم الدخول: ${newEmpName}`);
+        setNewEmpName('');
+        setNewEmpPass('');
+    }
   };
 
   const handleChangePassword = async () => {
@@ -182,7 +201,6 @@ export default function Dashboard() {
     setInquiryError('');
     setFoundTx(null);
     const tx = transactions.find(t => t.serialNo === inquiryId);
-    
     if (!tx) {
         setInquiryError('لم يتم العثور على معاملة بهذا الرقم، يرجى التحقق والمحاولة مرة أخرى.');
     } else {
@@ -200,7 +218,7 @@ export default function Dashboard() {
 
   const handleCreateBackup = () => {
     const data = createBackup();
-    setLastBackup(Date.now().toString()); // Update local state
+    setLastBackup(Date.now().toString());
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -224,13 +242,10 @@ export default function Dashboard() {
 
   const formatBackupDate = (ts: string) => {
     const date = new Date(parseInt(ts));
-    
-    // Format: "آخر نسخة احتياطية كانت يوم: [الوقت]"، [اليوم]، [الشهر]، [العام]
     const timeStr = date.toLocaleTimeString('ar-SA', { hour: 'numeric', minute: 'numeric' });
     const dayName = date.toLocaleDateString('ar-SA', { weekday: 'long' });
     const monthName = date.toLocaleDateString('ar-SA', { month: 'long' });
     const year = date.toLocaleDateString('ar-SA', { year: 'numeric' });
-    
     return `${timeStr}، ${dayName}، ${monthName}، ${year}`;
   };
 
@@ -240,10 +255,17 @@ export default function Dashboard() {
     { label: "إنجاز هذا الأسبوع", value: tickerStats.completedWeek, icon: CheckCircle2, color: "text-green-600" }
   ];
 
+  // Permission Check Helper
+  const canAccess = (page: keyof GlobalSettings['pagePermissions']) => {
+    if (!settings) return true; // Default allow if settings not loaded
+    const userRole = currentUser?.role || 'visitor';
+    // @ts-ignore
+    return settings.pagePermissions[page].includes(userRole);
+  };
+
   return (
     <div className="min-h-screen pb-10">
       
-      {/* Marquee Banner */}
       <div className="w-full bg-yellow-400 text-yellow-900 py-2 mb-6 overflow-hidden shadow-sm border-b border-yellow-500/20">
         <div className="marquee-container">
           <div className="marquee-content font-bold text-sm sm:text-base">
@@ -253,7 +275,6 @@ export default function Dashboard() {
       </div>
 
       <div className="max-w-6xl mx-auto px-4">
-        {/* Header Section */}
         <header className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-2xl sm:text-4xl font-black text-gray-800 mb-1 text-shadow">
@@ -265,8 +286,6 @@ export default function Dashboard() {
           </div>
           
           <div className="flex gap-3 items-center">
-            
-            {/* User Profile Menu (New) */}
             {currentUser && (
                 <DropdownMenu>
                   <DropdownMenuTrigger className="outline-none">
@@ -281,6 +300,7 @@ export default function Dashboard() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-56 bg-[#eef2f6] shadow-3d border-none rounded-xl" align="end" dir="rtl">
                     <DropdownMenuLabel className="text-center font-bold text-gray-700">{currentUser.officeName}</DropdownMenuLabel>
+                    <DropdownMenuLabel className="text-center text-xs text-blue-600">{currentUser.role === 'golden' ? 'عضو ذهبي' : currentUser.role === 'employee' ? 'موظف' : 'عضو'}</DropdownMenuLabel>
                     <DropdownMenuSeparator className="bg-gray-200" />
                     <DropdownMenuItem 
                         className="cursor-pointer focus:bg-white focus:text-blue-600 rounded-lg my-1 gap-2"
@@ -289,6 +309,17 @@ export default function Dashboard() {
                         <UserIcon className="w-4 h-4" />
                         <span>الملف الشخصي</span>
                     </DropdownMenuItem>
+                    
+                    {currentUser.role === 'golden' && (
+                        <DropdownMenuItem 
+                            className="cursor-pointer focus:bg-white focus:text-blue-600 rounded-lg my-1 gap-2"
+                            onClick={() => setCreateEmpOpen(true)}
+                        >
+                            <UserPlus className="w-4 h-4" />
+                            <span>إصدار عضوية موظف</span>
+                        </DropdownMenuItem>
+                    )}
+
                     <DropdownMenuItem 
                         className="cursor-pointer focus:bg-white focus:text-blue-600 rounded-lg my-1 gap-2"
                         onClick={() => setChangePassOpen(true)}
@@ -308,7 +339,6 @@ export default function Dashboard() {
                 </DropdownMenu>
             )}
 
-            {/* Hamburger Menu (Sheet) */}
             <Sheet>
               <SheetTrigger asChild>
                 <button className="p-3 rounded-full bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active text-gray-600 transition-all">
@@ -321,7 +351,6 @@ export default function Dashboard() {
                 </SheetHeader>
                 
                 <div className="flex flex-col gap-3">
-                  
                   {currentUser ? (
                     <button onClick={handleLogout} className="flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-red-600 font-bold">
                         <LogOut className="w-5 h-5" />
@@ -334,7 +363,6 @@ export default function Dashboard() {
                     </button>
                   )}
 
-                  {/* Employee Login Button */}
                   <Dialog open={empLoginOpen} onOpenChange={setEmpLoginOpen}>
                     <DialogTrigger asChild>
                         <button className="relative flex items-center gap-3 p-4 rounded-xl bg-[#eef2f6] shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-gray-700 font-bold">
@@ -381,20 +409,17 @@ export default function Dashboard() {
                           />
                           <button onClick={handleInquiry} className="bg-purple-600 text-white px-4 rounded-xl font-bold shadow-lg">بحث</button>
                         </div>
-                        
                         {inquiryError && (
                             <div className="bg-red-50 text-red-600 p-4 rounded-xl text-sm font-bold border border-red-100 shadow-sm animate-in fade-in">
                                 <AlertTriangle className="w-5 h-5 mx-auto mb-2" />
                                 <p className="text-center">{inquiryError}</p>
                             </div>
                         )}
-
                         {foundTx && (
                           <div className="bg-white/50 p-4 rounded-xl border border-white space-y-3 animate-in fade-in">
                             <p className="flex justify-between"><span className="font-bold text-gray-500">النوع:</span> <span>{foundTx.type}</span></p>
                             <p className="flex justify-between"><span className="font-bold text-gray-500">العميل:</span> <span>{foundTx.clientName}</span></p>
                             <p className="flex justify-between"><span className="font-bold text-gray-500">السعر:</span> <span className="text-blue-600 font-bold">{foundTx.clientPrice} ر.س</span></p>
-                            
                             <div className="flex justify-between items-center pt-2 border-t border-gray-200">
                                 <span className="font-bold text-gray-500">الحالة:</span>
                                 {foundTx.status === 'completed' ? (
@@ -405,7 +430,6 @@ export default function Dashboard() {
                                     <span className="text-orange-500 font-bold animate-pulse">تحت الإنجاز</span>
                                 )}
                             </div>
-                            
                             {foundTx.status === 'active' && (
                                 <p className="flex justify-between text-xs text-gray-400 mt-2">
                                     <span>الوقت المتبقي:</span> 
@@ -428,14 +452,11 @@ export default function Dashboard() {
                     <DialogContent className="bg-[#eef2f6] border-none shadow-3d" dir="rtl">
                       <DialogHeader><DialogTitle>النسخ الاحتياطي والاستعادة</DialogTitle></DialogHeader>
                       <div className="space-y-6 py-4">
-                        
-                        {/* Last Backup Info - Updated Format */}
                         {lastBackup && (
                             <div className="bg-blue-50 border border-blue-100 p-3 rounded-xl text-xs text-blue-700 font-bold text-center">
                                 آخر نسخة احتياطية كانت يوم: {formatBackupDate(lastBackup)}
                             </div>
                         )}
-
                         <div className="space-y-2">
                           <Label>إنشاء نسخة احتياطية</Label>
                           <button onClick={handleCreateBackup} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2">
@@ -459,7 +480,6 @@ export default function Dashboard() {
                     </DialogContent>
                   </Dialog>
 
-                  {/* Pro Subscription Button */}
                   <Dialog open={proOpen} onOpenChange={setProOpen}>
                     <DialogTrigger asChild>
                         <button className="relative flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-yellow-200 to-yellow-400 shadow-3d hover:shadow-3d-hover active:shadow-3d-active transition-all text-yellow-900 font-black animate-pulse overflow-hidden">
@@ -474,8 +494,6 @@ export default function Dashboard() {
                                 <Crown className="w-8 h-8" />
                                 العضوية الذهبية
                             </DialogTitle>
-                            
-                            {/* Request Code Link */}
                             <div className="text-center">
                                 <button 
                                     onClick={() => setRequestCodeOpen(true)}
@@ -485,7 +503,6 @@ export default function Dashboard() {
                                 </button>
                             </div>
                         </DialogHeader>
-
                         <div className="py-4 space-y-6">
                             <div className="bg-white/20 backdrop-blur-sm p-4 rounded-2xl border border-white/30 text-center">
                                 <h3 className="text-xl font-bold mb-2">الباقة الشهرية</h3>
@@ -504,7 +521,6 @@ export default function Dashboard() {
                                     <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> حسابات الموظفين (2)</li>
                                 </ul>
                             </div>
-                            
                             <div className="space-y-3">
                                 <button className="w-full py-4 bg-white text-yellow-700 rounded-xl font-black shadow-lg hover:bg-gray-100 transition-all">
                                     اشترك الآن
@@ -523,7 +539,6 @@ export default function Dashboard() {
                     </DialogContent>
                   </Dialog>
 
-                  {/* Request Code Dialog */}
                   <Dialog open={requestCodeOpen} onOpenChange={setRequestCodeOpen}>
                     <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl text-center" dir="rtl">
                         <DialogHeader><DialogTitle className="text-xl font-bold text-gray-800">للاشتراك يرجى التحويل</DialogTitle></DialogHeader>
@@ -536,7 +551,6 @@ export default function Dashboard() {
                                 <p className="font-bold text-green-800 mb-1">بنك الأهلي</p>
                                 <p className="font-mono text-lg text-gray-600 select-all">حساب رقم 123456</p>
                             </div>
-                            
                             <div className="pt-4 border-t border-gray-200">
                                 <p className="text-sm text-gray-500 mb-3">مع إرسال إشعار التحويل للرقم:</p>
                                 <a 
@@ -566,14 +580,12 @@ export default function Dashboard() {
                         <button onClick={() => { if(confirm('هل أنت متأكد من حذف جميع المعقبين؟')) { clearAgents(); alert('تم الحذف'); window.location.reload(); } }} className="w-full py-3 bg-white text-red-600 rounded-xl font-bold shadow-3d hover:bg-red-50 text-right px-4">حذف المعقبين</button>
                         <button onClick={() => { if(confirm('هل أنت متأكد من حذف جميع العملاء؟')) { clearClients(); alert('تم الحذف'); window.location.reload(); } }} className="w-full py-3 bg-white text-red-600 rounded-xl font-bold shadow-3d hover:bg-red-50 text-right px-4">حذف العملاء</button>
                         <button onClick={() => { if(confirm('هل أنت متأكد من حذف جميع المعاملات؟')) { clearTransactions(); alert('تم الحذف'); window.location.reload(); } }} className="w-full py-3 bg-white text-red-600 rounded-xl font-bold shadow-3d hover:bg-red-50 text-right px-4">حذف المعاملات</button>
-                        
                         <div className="pt-4">
                           <button onClick={() => setDeleteAllConfirm(true)} className="w-full py-4 bg-red-600 text-white rounded-xl font-black shadow-lg flex items-center justify-center gap-2 animate-pulse">
                             <AlertTriangle className="w-5 h-5" />
                             حذف الكل (تهيئة النظام)
                           </button>
                         </div>
-
                         {deleteAllConfirm && (
                           <div className="bg-red-100 border-2 border-red-500 p-4 rounded-xl mt-4 text-center animate-in zoom-in">
                             <p className="text-red-800 font-bold mb-3">تحذير شديد اللهجة: سيتم حذف جميع البيانات نهائياً ولا يمكن استعادتها!</p>
@@ -649,66 +661,74 @@ export default function Dashboard() {
           </div>
         </header>
 
-        {/* Main Grid */}
+        {/* Main Grid with Permission Checks */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-5 sm:gap-8">
           
-          {/* المعاملات */}
-          <DashboardButton 
-            icon={FileText} 
-            label="المعاملات" 
-            onClick={() => navigate('/transactions')}
-          />
+          {canAccess('transactions') && (
+            <DashboardButton 
+                icon={FileText} 
+                label="المعاملات" 
+                onClick={() => navigate('/transactions')}
+            />
+          )}
 
-          {/* الحسابات */}
-          <DashboardButton 
-            icon={Wallet} 
-            label="الحسابات" 
-            onClick={() => navigate('/accounts')}
-          />
+          {canAccess('accounts') && (
+            <DashboardButton 
+                icon={Wallet} 
+                label="الحسابات" 
+                onClick={() => navigate('/accounts')}
+            />
+          )}
 
-          {/* التقارير */}
-          <DashboardButton 
-            icon={BarChart3} 
-            label="التقارير" 
-            onClick={() => navigate('/reports')}
-          />
+          {canAccess('reports') && (
+            <DashboardButton 
+                icon={BarChart3} 
+                label="التقارير" 
+                onClick={() => navigate('/reports')}
+            />
+          )}
 
-          {/* العملاء */}
-          <DashboardButton 
-            icon={Users} 
-            label="العملاء" 
-            onClick={() => navigate('/clients')}
-          />
+          {canAccess('clients') && (
+            <DashboardButton 
+                icon={Users} 
+                label="العملاء" 
+                onClick={() => navigate('/clients')}
+            />
+          )}
 
-          {/* المعقبين */}
-          <DashboardButton 
-            icon={UserCheck} 
-            label="المعقبين" 
-            onClick={() => navigate('/agents')}
-          />
+          {canAccess('agents') && (
+            <DashboardButton 
+                icon={UserCheck} 
+                label="المعقبين" 
+                onClick={() => navigate('/agents')}
+            />
+          )}
 
-          {/* المنجزين */}
-          <DashboardButton 
-            icon={Award} 
-            label="المنجزين" 
-            variant="primary"
-            onClick={() => navigate('/achievers')}
-          />
+          {canAccess('achievers') && (
+            <DashboardButton 
+                icon={Award} 
+                label="المنجزين" 
+                variant="primary"
+                onClick={() => navigate('/achievers')}
+            />
+          )}
 
-          {/* المنصرفات */}
-          <DashboardButton 
-            icon={Receipt} 
-            label="المنصرفات" 
-            variant="danger"
-            onClick={() => navigate('/expenses')}
-          />
+          {canAccess('expenses') && (
+            <DashboardButton 
+                icon={Receipt} 
+                label="المنصرفات" 
+                variant="danger"
+                onClick={() => navigate('/expenses')}
+            />
+          )}
 
-          {/* الحاسبة */}
-          <DashboardButton 
-            icon={Calculator} 
-            label="الحاسبة" 
-            onClick={() => navigate('/calculator')}
-          />
+          {canAccess('calculator') && (
+            <DashboardButton 
+                icon={Calculator} 
+                label="الحاسبة" 
+                onClick={() => navigate('/calculator')}
+            />
+          )}
 
         </div>
 
@@ -888,6 +908,53 @@ export default function Dashboard() {
                         >
                             {passLoading ? <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span> : <Key className="w-4 h-4" />}
                             تحديث كلمة المرور
+                        </button>
+                    </div>
+                )}
+            </DialogContent>
+        </Dialog>
+
+        {/* Employee Creation Dialog (Golden Only) */}
+        <Dialog open={createEmpOpen} onOpenChange={setCreateEmpOpen}>
+            <DialogContent className="bg-[#eef2f6] border-none shadow-3d rounded-3xl" dir="rtl">
+                <DialogHeader><DialogTitle className="text-center text-xl font-bold text-gray-800">إصدار عضوية موظف</DialogTitle></DialogHeader>
+                
+                {empSuccess ? (
+                    <div className="py-8 flex flex-col items-center justify-center animate-in zoom-in">
+                        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center text-green-600 mb-4 shadow-3d">
+                            <CheckCircle2 className="w-8 h-8" strokeWidth={3} />
+                        </div>
+                        <h3 className="text-lg font-bold text-green-700 text-center">{empSuccess}</h3>
+                        <p className="text-xs text-gray-500 mt-2">يرجى حفظ اسم الدخول للموظف</p>
+                        <button onClick={() => { setEmpSuccess(''); setCreateEmpOpen(false); }} className="mt-4 px-6 py-2 bg-gray-200 rounded-lg font-bold">إغلاق</button>
+                    </div>
+                ) : (
+                    <div className="py-4 space-y-4">
+                        <div className="space-y-2">
+                            <Label>اسم الموظف</Label>
+                            <Input 
+                                value={newEmpName}
+                                onChange={(e) => setNewEmpName(e.target.value)}
+                                className="bg-white shadow-3d-inset border-none"
+                                placeholder="اسم الموظف"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>كلمة المرور</Label>
+                            <Input 
+                                type="password"
+                                value={newEmpPass}
+                                onChange={(e) => setNewEmpPass(e.target.value)}
+                                className="bg-white shadow-3d-inset border-none"
+                                placeholder="••••"
+                            />
+                        </div>
+                        <button 
+                            onClick={handleCreateEmployee}
+                            className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 mt-2"
+                        >
+                            <UserPlus className="w-4 h-4" />
+                            إنشاء حساب
                         </button>
                     </div>
                 )}

@@ -34,6 +34,9 @@ export interface User {
   securityQuestion: string;
   securityAnswer: string;
   createdAt: number;
+  role?: 'member' | 'golden' | 'employee'; // Added Roles
+  parentId?: number; // For Employees linked to Golden Member
+  permissions?: string[]; // Specific permissions for employees
 }
 
 export interface Client {
@@ -95,6 +98,25 @@ export interface ClientRefundRecord {
   transactionCount: number;
 }
 
+// --- Admin & Settings Types ---
+export interface GlobalSettings {
+  adminPasswordHash: string; // Default: 1234 hashed
+  pagePermissions: {
+    transactions: ('visitor' | 'member' | 'golden')[];
+    accounts: ('visitor' | 'member' | 'golden')[];
+    reports: ('visitor' | 'member' | 'golden')[];
+    clients: ('visitor' | 'member' | 'golden')[];
+    agents: ('visitor' | 'member' | 'golden')[];
+    achievers: ('visitor' | 'member' | 'golden')[];
+    expenses: ('visitor' | 'member' | 'golden')[];
+    calculator: ('visitor' | 'member' | 'golden')[];
+  };
+  contentVisibility: {
+    achieversNumbers: ('visitor' | 'member' | 'golden')[];
+    lessons: ('visitor' | 'member' | 'golden')[];
+  };
+}
+
 export interface AppData {
   transactions: Transaction[];
   balances: Record<string, number>;
@@ -113,12 +135,45 @@ const AGENT_TRANSFERS_KEY = 'moaqeb_agent_transfers_v1';
 const CLIENT_REFUNDS_KEY = 'moaqeb_client_refunds_v1';
 const CURRENT_USER_KEY = 'moaqeb_current_user_v1'; // Session Storage
 const LAST_BACKUP_KEY = 'moaqeb_last_backup_v1';
+const SETTINGS_KEY = 'moaqeb_global_settings_v1';
 
 // --- User Management (Supabase Auth) ---
 
 // Simple Hash Function
 const hashPassword = (pwd: string) => {
   return btoa(pwd).split('').reverse().join(''); 
+};
+
+// Default Settings
+const DEFAULT_SETTINGS: GlobalSettings = {
+  adminPasswordHash: hashPassword('1234'),
+  pagePermissions: {
+    transactions: ['visitor', 'member', 'golden'],
+    accounts: ['visitor', 'member', 'golden'],
+    reports: ['visitor', 'member', 'golden'],
+    clients: ['visitor', 'member', 'golden'],
+    agents: ['visitor', 'member', 'golden'],
+    achievers: ['visitor', 'member', 'golden'],
+    expenses: ['visitor', 'member', 'golden'],
+    calculator: ['visitor', 'member', 'golden'],
+  },
+  contentVisibility: {
+    achieversNumbers: ['visitor', 'member', 'golden'],
+    lessons: ['visitor', 'member', 'golden'],
+  }
+};
+
+export const getGlobalSettings = (): GlobalSettings => {
+  try {
+    const stored = localStorage.getItem(SETTINGS_KEY);
+    return stored ? JSON.parse(stored) : DEFAULT_SETTINGS;
+  } catch {
+    return DEFAULT_SETTINGS;
+  }
+};
+
+export const saveGlobalSettings = (settings: GlobalSettings) => {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 };
 
 export const registerUser = async (user: Omit<User, 'id' | 'createdAt' | 'passwordHash'> & { password: string }) => {
@@ -141,6 +196,11 @@ export const registerUser = async (user: Omit<User, 'id' | 'createdAt' | 'passwo
     // 2. Insert new user
     const passwordHash = hashPassword(user.password);
     
+    // Determine Role (Default to member, logic can be enhanced)
+    // For now, we assume standard registration is 'member'. 
+    // Golden is assigned manually or via code (future).
+    const role = user.role || 'member'; 
+
     const { error: insertError } = await supabase
       .from('users')
       .insert([
@@ -149,7 +209,9 @@ export const registerUser = async (user: Omit<User, 'id' | 'createdAt' | 'passwo
           phone: user.phone,
           password_hash: passwordHash,
           security_question: user.securityQuestion,
-          security_answer: user.securityAnswer
+          security_answer: user.securityAnswer,
+          // We would store role/parent_id in DB if schema supported it, 
+          // for now we rely on the object passed, assuming DB has columns or we handle locally for Employees
         }
       ]);
 
@@ -165,10 +227,57 @@ export const registerUser = async (user: Omit<User, 'id' | 'createdAt' | 'passwo
   }
 };
 
+// Function to create Employee (Local/Cloud hybrid for now as per constraints)
+export const createEmployee = async (employeeData: { name: string, password: string, permissions: string[] }, parentUser: User) => {
+    // Ideally this goes to Supabase users table with parent_id
+    // For this implementation, we will simulate it or use a separate local storage for employees if DB schema isn't updated for it yet.
+    // Assuming we want to use the existing login system:
+    
+    // We will prefix employee phones with parent ID to ensure uniqueness: "EMP-[ParentID]-[Random]"
+    const fakePhone = `EMP-${parentUser.id}-${Math.floor(Math.random() * 1000)}`;
+    
+    const newUser: User = {
+        id: Date.now(),
+        officeName: employeeData.name,
+        phone: fakePhone, // Internal ID
+        passwordHash: hashPassword(employeeData.password),
+        securityQuestion: 'Employee',
+        securityAnswer: 'Employee',
+        createdAt: Date.now(),
+        role: 'employee',
+        parentId: parentUser.id,
+        permissions: employeeData.permissions
+    };
+
+    // Save to Local Storage for Employees (Since we can't easily alter DB schema right now without SQL)
+    const employees = getStoredEmployees();
+    employees.push(newUser);
+    localStorage.setItem('moaqeb_employees_v1', JSON.stringify(employees));
+    
+    return { success: true, username: fakePhone };
+};
+
+export const getStoredEmployees = (): User[] => {
+    try {
+        const stored = localStorage.getItem('moaqeb_employees_v1');
+        return stored ? JSON.parse(stored) : [];
+    } catch { return []; }
+};
+
 export const loginUser = async (phone: string, password: string) => {
   try {
     const passwordHash = hashPassword(password);
 
+    // 1. Check Local Employees First
+    const employees = getStoredEmployees();
+    const emp = employees.find(e => e.officeName === phone && e.passwordHash === passwordHash); // Login with Name for employees? Or Phone?
+    // Let's stick to Phone/Name logic. If phone input matches employee name (as requested "اسم الموظف")
+    if (emp) {
+         localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(emp));
+         return { success: true, user: emp };
+    }
+
+    // 2. Check Supabase Users
     const { data, error } = await supabase
       .from('users')
       .select('*')
@@ -188,8 +297,16 @@ export const loginUser = async (phone: string, password: string) => {
         passwordHash: data.password_hash,
         securityQuestion: data.security_question,
         securityAnswer: data.security_answer,
-        createdAt: new Date(data.created_at).getTime()
+        createdAt: new Date(data.created_at).getTime(),
+        role: 'member' // Default role from DB is member. 
+        // In a real app, we'd fetch role from DB. For this demo, we can toggle via Admin Panel locally if we map IDs.
     };
+    
+    // Check if this user is upgraded to Golden in Local Settings (Simulation)
+    const goldenUsers = JSON.parse(localStorage.getItem('moaqeb_golden_users_v1') || '[]');
+    if (goldenUsers.includes(user.id)) {
+        user.role = 'golden';
+    }
 
     localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
     return { success: true, user };
