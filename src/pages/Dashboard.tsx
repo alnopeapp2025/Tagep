@@ -28,7 +28,7 @@ export default function Dashboard() {
           &lt;SheetContent side="right" className="w-[300px] sm:w-[400px]"&gt;
             &lt;div className="flex flex-col gap-4 mt-8"&gt;
               &lt;h2 className="text-xl font-bold mb-4"&gt;القائمة الجانبية&lt;/h2&gt;
-              {/* System Settings inside Hamburger Menu */}
+              {/* زر إعدادات النظام مثبت هنا بشكل مباشر */}
               &lt;SystemSettings mobile /&gt;
             &lt;/div&gt;
           &lt;/SheetContent&gt;
@@ -40,21 +40,21 @@ export default function Dashboard() {
         &lt;/div&gt;
       &lt;/header&gt;
 
-      {/* Main Content Title */}
+      {/* العنوان الرئيسي */}
       &lt;div className="text-center mb-8"&gt;
         &lt;h1 className="text-3xl font-bold text-slate-900"&gt;القائمة الرئيسية&lt;/h1&gt;
       &lt;/div&gt;
 
-      {/* Menu Grid/List */}
+      {/* شبكة القوائم - تم تثبيت الأكواد والألوان بشكل مباشر */}
       &lt;div className="grid gap-4 max-w-md mx-auto"&gt;
         
-        {/* Login */}
+        {/* تسجيل دخول */}
         &lt;Button variant="outline" className="h-16 justify-between bg-white hover:bg-gray-50 border-gray-200 shadow-sm"&gt;
           &lt;span className="text-lg"&gt;تسجيل دخول&lt;/span&gt;
           &lt;LogIn className="h-6 w-6 text-blue-600" /&gt;
         &lt;/Button&gt;
 
-        {/* Employee Login */}
+        {/* دخول الموظفين */}
         &lt;Button variant="outline" className="h-16 justify-between bg-white hover:bg-gray-50 border-gray-200 shadow-sm relative"&gt;
           &lt;div className="flex items-center gap-2"&gt;
             &lt;span className="text-lg"&gt;دخول الموظفين&lt;/span&gt;
@@ -63,43 +63,43 @@ export default function Dashboard() {
           &lt;Users className="h-6 w-6 text-slate-600" /&gt;
         &lt;/Button&gt;
 
-        {/* Transaction Inquiry */}
+        {/* استعلام عن معاملة */}
         &lt;Button variant="outline" className="h-16 justify-between bg-white hover:bg-gray-50 border-gray-200 shadow-sm"&gt;
           &lt;span className="text-lg"&gt;استعلام عن معاملة&lt;/span&gt;
           &lt;Search className="h-6 w-6 text-purple-600" /&gt;
         &lt;/Button&gt;
 
-        {/* Backup */}
+        {/* النسخ الاحتياطي */}
         &lt;Button variant="outline" className="h-16 justify-between bg-white hover:bg-gray-50 border-gray-200 shadow-sm"&gt;
           &lt;span className="text-lg"&gt;النسخ الاحتياطي&lt;/span&gt;
           &lt;Database className="h-6 w-6 text-orange-500" /&gt;
         &lt;/Button&gt;
 
-        {/* Gold Subscription - RED as requested */}
+        {/* اشتراك ذهبي - تم تثبيت اللون الأحمر في الكود مباشرة */}
         &lt;Button className="h-16 justify-between bg-red-100 hover:bg-red-200 text-red-900 border-red-200 shadow-sm border"&gt;
           &lt;span className="text-lg font-bold"&gt;اشتراك ذهبي Pro&lt;/span&gt;
           &lt;Crown className="h-6 w-6 text-yellow-600" /&gt;
         &lt;/Button&gt;
 
-        {/* System Data */}
+        {/* بيانات النظام */}
         &lt;Button variant="outline" className="h-16 justify-between bg-white hover:bg-gray-50 border-gray-200 shadow-sm"&gt;
           &lt;span className="text-lg"&gt;بيانات النظام&lt;/span&gt;
           &lt;Trash2 className="h-6 w-6 text-red-500" /&gt;
         &lt;/Button&gt;
 
-        {/* Privacy Policy */}
+        {/* سياسة الخصوصية */}
         &lt;Button variant="outline" className="h-16 justify-between bg-white hover:bg-gray-50 border-gray-200 shadow-sm"&gt;
           &lt;span className="text-lg"&gt;سياسة الخصوصية&lt;/span&gt;
           &lt;Shield className="h-6 w-6 text-green-600" /&gt;
         &lt;/Button&gt;
 
-        {/* Delete My Data */}
+        {/* حذف بياناتي */}
         &lt;Button variant="outline" className="h-16 justify-between bg-white hover:bg-gray-50 border-gray-200 shadow-sm"&gt;
           &lt;span className="text-lg"&gt;حذف بياناتي&lt;/span&gt;
           &lt;UserX className="h-6 w-6 text-slate-600" /&gt;
         &lt;/Button&gt;
 
-        {/* Contact Us */}
+        {/* اتصل بنا */}
         &lt;Button variant="outline" className="h-16 justify-between bg-white hover:bg-gray-50 border-gray-200 shadow-sm"&gt;
           &lt;span className="text-lg"&gt;اتصل بنا&lt;/span&gt;
           &lt;Mail className="h-6 w-6 text-blue-500" /&gt;

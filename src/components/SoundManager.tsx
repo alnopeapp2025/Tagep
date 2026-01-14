@@ -9,11 +9,9 @@ export function SoundManager() {
       if (!soundEnabled) return;
       
       const target = e.target as HTMLElement;
-      // التحقق مما إذا كان العنصر تفاعلياً
       const clickable = target.closest('button, a, [role="button"], input, select, .cursor-pointer');
 
       if (clickable) {
-        // تشغيل صوت "Pop" قصير جداً ومدمج لتجنب مشاكل التحميل
         const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
         const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();

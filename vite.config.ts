@@ -10,9 +10,7 @@ export default defineConfig({
     },
   },
   build: {
-    // تفعيل الـ Source Maps للمساعدة في تتبع الأخطاء إن وجدت
     sourcemap: false,
-    // إعدادات لضمان توليد أسماء ملفات فريدة لتجاوز الكاش (Cache Busting)
     rollupOptions: {
       output: {
         entryFileNames: `assets/[name].[hash].js`,
