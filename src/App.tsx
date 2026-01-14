@@ -1,7 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import { SoundManager } from './components/SoundManager';
-import { Toaster } from "@/components/ui/toaster" // Assuming toaster exists or we skip it if not needed, but good practice.
 
 function App() {
   return (

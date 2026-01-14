@@ -8,13 +8,11 @@ import {
   Shield, 
   UserX, 
   Mail, 
-  Menu,
-  ChevronLeft
+  Menu
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { SystemSettings } from "@/components/SystemSettings";
-import { cn } from "@/lib/utils";
 
 export default function Dashboard() {
   return (
@@ -77,14 +75,13 @@ export default function Dashboard() {
           &lt;Database className="h-6 w-6 text-orange-500" /&gt;
         &lt;/Button&gt;
 
-        {/* Gold Subscription - CHANGED TO RED as requested */}
+        {/* Gold Subscription - RED as requested */}
         &lt;Button className="h-16 justify-between bg-red-100 hover:bg-red-200 text-red-900 border-red-200 shadow-sm border"&gt;
           &lt;span className="text-lg font-bold"&gt;اشتراك ذهبي Pro&lt;/span&gt;
           &lt;Crown className="h-6 w-6 text-yellow-600" /&gt;
         &lt;/Button&gt;
 
-        {/* System Settings (Added to main list as well for visibility, or just keep in hamburger as requested) */}
-        {/* User asked for it in Hamburger, but I'll add the "System Data" button from the image here */}
+        {/* System Data */}
         &lt;Button variant="outline" className="h-16 justify-between bg-white hover:bg-gray-50 border-gray-200 shadow-sm"&gt;
           &lt;span className="text-lg"&gt;بيانات النظام&lt;/span&gt;
           &lt;Trash2 className="h-6 w-6 text-red-500" /&gt;

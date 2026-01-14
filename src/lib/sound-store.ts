@@ -9,7 +9,7 @@ interface SettingsState {
 export const useSettingsStore = create&lt;SettingsState&gt;()(
   persist(
     (set) => ({
-      soundEnabled: true, // مفعل افتراضياً
+      soundEnabled: true,
       toggleSound: () => set((state) => ({ soundEnabled: !state.soundEnabled })),
     }),
     {
