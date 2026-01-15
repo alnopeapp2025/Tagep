@@ -24,7 +24,8 @@ const PagePlaceholder = ({ title }: { title: string }) => (
 
 function App() {
   return (
-    <Router>
+    // إضافة basename ضروري جداً ليعمل الراوتر داخل مجلد فرعي على GitHub Pages
+    <Router basename="/Tagep">
       <div className="min-h-screen bg-gray-50 font-sans text-right" dir="rtl">
         <SoundManager />
         <Routes>
