@@ -3,7 +3,7 @@ import react from "@vitejs/plugin-react"
 import { defineConfig } from "vite"
 
 export default defineConfig({
-  base: '/Tagep/', // تم التعديل ليتوافق مع اسم المستودع
+  base: '/', // العودة للمسار الجذري
   plugins: [react()],
   resolve: {
     alias: {
