@@ -1,5 +1,3 @@
-import { useEffect, useState } from 'react';
-
 export function NewsTicker() {
   return (
     <div className="w-full bg-red-600 text-white py-2 overflow-hidden relative border-y border-red-700">

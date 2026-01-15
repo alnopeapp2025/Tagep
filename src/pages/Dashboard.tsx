@@ -15,6 +15,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { SystemSettings } from "@/components/SystemSettings";
 import { NewsTicker } from "@/components/NewsTicker";
 import { FooterTicker } from "@/components/FooterTicker";
+import { Link } from "react-router-dom";
 
 export default function Dashboard() {
   return (
@@ -56,64 +57,82 @@ export default function Dashboard() {
         <div className="grid gap-4 mb-6">
           
           {/* تسجيل دخول */}
-          <Button variant="outline" className="h-16 justify-between bg-white hover:bg-gray-50 border-gray-200 shadow-sm">
-            <span className="text-lg">تسجيل دخول</span>
-            <LogIn className="h-6 w-6 text-blue-600" />
-          </Button>
+          <Link to="/login">
+            <Button variant="outline" className="w-full h-16 justify-between bg-white hover:bg-gray-50 border-gray-200 shadow-sm">
+              <span className="text-lg">تسجيل دخول</span>
+              <LogIn className="h-6 w-6 text-blue-600" />
+            </Button>
+          </Link>
 
           {/* دخول الموظفين */}
-          <Button variant="outline" className="h-16 justify-between bg-white hover:bg-gray-50 border-gray-200 shadow-sm relative">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">دخول الموظفين</span>
-              <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">جديد</span>
-            </div>
-            <Users className="h-6 w-6 text-slate-600" />
-          </Button>
+          <Link to="/agents">
+            <Button variant="outline" className="w-full h-16 justify-between bg-white hover:bg-gray-50 border-gray-200 shadow-sm relative">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">دخول الموظفين</span>
+                <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">جديد</span>
+              </div>
+              <Users className="h-6 w-6 text-slate-600" />
+            </Button>
+          </Link>
 
           {/* استعلام عن معاملة */}
-          <Button variant="outline" className="h-16 justify-between bg-white hover:bg-gray-50 border-gray-200 shadow-sm">
-            <span className="text-lg">استعلام عن معاملة</span>
-            <Search className="h-6 w-6 text-purple-600" />
-          </Button>
+          <Link to="/transactions">
+            <Button variant="outline" className="w-full h-16 justify-between bg-white hover:bg-gray-50 border-gray-200 shadow-sm">
+              <span className="text-lg">استعلام عن معاملة</span>
+              <Search className="h-6 w-6 text-purple-600" />
+            </Button>
+          </Link>
 
           {/* النسخ الاحتياطي */}
-          <Button variant="outline" className="h-16 justify-between bg-white hover:bg-gray-50 border-gray-200 shadow-sm">
-            <span className="text-lg">النسخ الاحتياطي</span>
-            <Database className="h-6 w-6 text-orange-500" />
-          </Button>
+          <Link to="/backup">
+            <Button variant="outline" className="w-full h-16 justify-between bg-white hover:bg-gray-50 border-gray-200 shadow-sm">
+              <span className="text-lg">النسخ الاحتياطي</span>
+              <Database className="h-6 w-6 text-orange-500" />
+            </Button>
+          </Link>
 
-          {/* اشتراك ذهبي - أصفر كما في النسخة الأصلية */}
-          <Button className="h-16 justify-between bg-yellow-100 hover:bg-yellow-200 text-yellow-900 border-yellow-200 shadow-sm border">
-            <span className="text-lg font-bold">اشتراك ذهبي Pro</span>
-            <Crown className="h-6 w-6 text-yellow-600" />
-          </Button>
+          {/* اشتراك ذهبي - أصفر */}
+          <Link to="/subscription">
+            <Button className="w-full h-16 justify-between bg-yellow-100 hover:bg-yellow-200 text-yellow-900 border-yellow-200 shadow-sm border">
+              <span className="text-lg font-bold">اشتراك ذهبي Pro</span>
+              <Crown className="h-6 w-6 text-yellow-600" />
+            </Button>
+          </Link>
 
           {/* بيانات النظام */}
-          <Button variant="outline" className="h-16 justify-between bg-white hover:bg-gray-50 border-gray-200 shadow-sm">
-            <span className="text-lg">بيانات النظام</span>
-            <Trash2 className="h-6 w-6 text-red-500" />
-          </Button>
+          <Link to="/system-data">
+            <Button variant="outline" className="w-full h-16 justify-between bg-white hover:bg-gray-50 border-gray-200 shadow-sm">
+              <span className="text-lg">بيانات النظام</span>
+              <Trash2 className="h-6 w-6 text-red-500" />
+            </Button>
+          </Link>
 
           {/* سياسة الخصوصية */}
-          <Button variant="outline" className="h-16 justify-between bg-white hover:bg-gray-50 border-gray-200 shadow-sm">
-            <span className="text-lg">سياسة الخصوصية</span>
-            <Shield className="h-6 w-6 text-green-600" />
-          </Button>
+          <Link to="/privacy">
+            <Button variant="outline" className="w-full h-16 justify-between bg-white hover:bg-gray-50 border-gray-200 shadow-sm">
+              <span className="text-lg">سياسة الخصوصية</span>
+              <Shield className="h-6 w-6 text-green-600" />
+            </Button>
+          </Link>
 
           {/* حذف بياناتي */}
-          <Button variant="outline" className="h-16 justify-between bg-white hover:bg-gray-50 border-gray-200 shadow-sm">
-            <span className="text-lg">حذف بياناتي</span>
-            <UserX className="h-6 w-6 text-slate-600" />
-          </Button>
+          <Link to="/delete-account">
+            <Button variant="outline" className="w-full h-16 justify-between bg-white hover:bg-gray-50 border-gray-200 shadow-sm">
+              <span className="text-lg">حذف بياناتي</span>
+              <UserX className="h-6 w-6 text-slate-600" />
+            </Button>
+          </Link>
 
           {/* اتصل بنا */}
-          <Button variant="outline" className="h-16 justify-between bg-white hover:bg-gray-50 border-gray-200 shadow-sm">
-            <span className="text-lg">اتصل بنا</span>
-            <Mail className="h-6 w-6 text-blue-500" />
-          </Button>
+          <Link to="/contact">
+            <Button variant="outline" className="w-full h-16 justify-between bg-white hover:bg-gray-50 border-gray-200 shadow-sm">
+              <span className="text-lg">اتصل بنا</span>
+              <Mail className="h-6 w-6 text-blue-500" />
+            </Button>
+          </Link>
           
           <div className="text-center text-gray-400 text-sm mt-4">
-            الإصدار 1.0.0
+            الإصدار 1.0.0 (Restored)
           </div>
 
         </div>
