@@ -42,7 +42,7 @@ export default function Dashboard() {
         &lt;/div&gt;
       &lt;/header&gt;
 
-      {/* الشريط الأصفر المتحرك العلوي - كما في النسخة الأصلية */}
+      {/* الشريط المتحرك العلوي */}
       &lt;NewsTicker /&gt;
 
       &lt;main className="p-4 max-w-md mx-auto w-full flex-grow"&gt;
@@ -81,7 +81,7 @@ export default function Dashboard() {
             &lt;Database className="h-6 w-6 text-orange-500" /&gt;
           &lt;/Button&gt;
 
-          {/* اشتراك ذهبي - العودة للون الأصفر الأصلي */}
+          {/* اشتراك ذهبي - أصفر كما في النسخة الأصلية */}
           &lt;Button className="h-16 justify-between bg-yellow-100 hover:bg-yellow-200 text-yellow-900 border-yellow-200 shadow-sm border"&gt;
             &lt;span className="text-lg font-bold"&gt;اشتراك ذهبي Pro&lt;/span&gt;
             &lt;Crown className="h-6 w-6 text-yellow-600" /&gt;
