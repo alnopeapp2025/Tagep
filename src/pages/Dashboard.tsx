@@ -12,6 +12,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { SystemSettings } from "@/components/SystemSettings";
 import { FooterTicker } from "@/components/FooterTicker";
 import { Link } from "react-router-dom";
+import { NewsTicker } from "@/components/NewsTicker";
 
 export default function Dashboard() {
   return (
@@ -21,6 +22,8 @@ export default function Dashboard() {
       <div className="bg-[#FCD34D] w-full py-4 px-6 text-right font-bold text-slate-900 text-lg shadow-sm">
         المعقب المحاسبي
       </div>
+
+      <NewsTicker />
 
       <main className="p-6 max-w-md mx-auto w-full flex-grow flex flex-col">
         
