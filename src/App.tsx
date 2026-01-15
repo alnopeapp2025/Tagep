@@ -9,7 +9,6 @@ function App() {
         &lt;SoundManager /&gt;
         &lt;Routes&gt;
           &lt;Route path="/" element={&lt;Dashboard /&gt;} /&gt;
-          {/* تم حذف مسار لوحة الإدارة نهائياً */}
         &lt;/Routes&gt;
       &lt;/div&gt;
     &lt;/Router&gt;
