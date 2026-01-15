@@ -4,14 +4,14 @@ import { SoundManager } from './components/SoundManager';
 
 function App() {
   return (
-    &lt;Router&gt;
-      &lt;div className="min-h-screen bg-gray-50 font-sans text-right" dir="rtl"&gt;
-        &lt;SoundManager /&gt;
-        &lt;Routes&gt;
-          &lt;Route path="/" element={&lt;Dashboard /&gt;} /&gt;
-        &lt;/Routes&gt;
-      &lt;/div&gt;
-    &lt;/Router&gt;
+    <Router>
+      <div className="min-h-screen bg-gray-50 font-sans text-right" dir="rtl">
+        <SoundManager />
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+        </Routes>
+      </div>
+    </Router>
   );
 }
 

@@ -6,11 +6,11 @@ interface SettingsState {
   toggleSound: () => void;
 }
 
-export const useSettingsStore = create&lt;SettingsState&gt;()(
+export const useSettingsStore = create<SettingsState>()(
   persist(
-    (set) =&gt; ({
+    (set) => ({
       soundEnabled: true,
-      toggleSound: () => set((state) =&gt; ({ soundEnabled: !state.soundEnabled })),
+      toggleSound: () => set((state) => ({ soundEnabled: !state.soundEnabled })),
     }),
     {
       name: 'app-settings',
